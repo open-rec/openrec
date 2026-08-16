@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>open-rec 推荐效果演示</title>
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-main">
+        <h1>open-rec <span class="dim">推荐效果演示</span></h1>
+        <div class="controls">
+            <label>用户
+                <input id="userId" type="text" value="user_0" spellcheck="false">
+            </label>
+            <label>场景
+                <select id="scene"></select>
+            </label>
+            <button id="reload" class="btn">重新加载</button>
+            <button id="reset" class="btn btn-warn" title="清除曝光记录，让演示可以反复进行">重置曝光</button>
+        </div>
+    </div>
+
+    <div class="state">
+        <span class="state-title">行为记录</span>
+        <span class="counter" data-type="click">click <b>-</b></span>
+        <span class="counter" data-type="expose">expose <b>-</b></span>
+        <span class="counter" data-type="buy">buy <b>-</b></span>
+        <span class="counter" data-type="collect">collect <b>-</b></span>
+        <span class="counter" data-type="stay">stay <b>-</b></span>
+        <span class="hint">带 <i class="dot-live"></i> 的行为会影响下次推荐</span>
+    </div>
+</header>
+
+<nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="guess">猜你喜欢</button>
+    <button class="tab" data-tab="related">相关推荐</button>
+    <button class="tab" data-tab="hot">热门推荐</button>
+    <button class="tab" data-tab="new">新品推荐</button>
+</nav>
+
+<section class="meta">
+    <div id="source" class="source"></div>
+    <div id="note" class="note"></div>
+</section>
+
+<main id="grid" class="grid"></main>
+
+<div id="empty" class="empty hidden"></div>
+
+<footer class="foot">
+    <p>
+        <b>猜你喜欢</b> / <b>相关推荐</b> 经 rec-client SDK 调用 rec-server 的 <code>/api/recommend</code>；
+        <b>热门推荐</b> / <b>新品推荐</b> 直接读取 Redis 的 <code>hot:{scene}</code> / <code>new:{scene}</code> 召回表。
+    </p>
+    <p>
+        点击卡片上报 <code>click</code>，卡片进入视口自动上报 <code>expose</code>，离开视口上报 <code>stay</code>（驻留秒数），
+        按钮上报 <code>buy</code> / <code>collect</code>。所有上报均通过 SDK 推送到 rec-server。
+    </p>
+    <p class="dim">
+        其中只有 <code>click</code>（成为下次召回的 trigger）和 <code>expose</code>（24 小时内被过滤）会改变推荐结果，
+        <code>buy</code> / <code>collect</code> / <code>stay</code> 会被正确存储但当前没有节点消费。
+    </p>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

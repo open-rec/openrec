@@ -12,6 +12,7 @@ stack on one machine (macOS or Linux).
 |---|---|
 | [data](data) | sample datasets — a committed synthetic one, plus notes on the Douban dataset |
 | [init](init) | `InitStandalone`, the loader that writes a dataset into Redis / Elasticsearch |
+| [web](web) | a visual demo: four recall tabs, live behaviour feedback through the sdk |
 | [example_standalone](example_standalone) | single-machine setup: Redis + Elasticsearch + rec-server |
 | [example_cluster](example_cluster) | distributed setup via Kafka (incomplete — `data-processor` is unpublished) |
 
