@@ -6,5 +6,6 @@
 
 # project files
 .idea
+target
 
 data/douban

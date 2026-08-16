@@ -1,7 +1,7 @@
 package com.openrec.example.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -19,7 +19,7 @@ public class RedisUtil {
     }
 
     public static RedisTemplate getRedis(String host, int port) {
-        Pair<String, Integer> key = new Pair<>(host, port);
+        Pair<String, Integer> key = Pair.of(host, port);
         if (!redisMap.containsKey(key)) {
             JedisConnectionFactory jedisConnectionFactory = new JedisConnectionFactory();
             jedisConnectionFactory.setHostName(host);

@@ -13,10 +13,10 @@ import com.openrec.proto.model.Event;
 import com.openrec.proto.model.Item;
 import com.openrec.proto.model.User;
 import com.openrec.proto.model.VectorResult;
-import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.io.IOException;
@@ -29,16 +29,21 @@ import java.util.*;
 @Slf4j
 public class InitStandalone {
 
-    private static final String TEST_DATA_DIR = System.getProperty("user.dir") + "/data/douban";
-    private static final String TEST_ITEM_DATA = TEST_DATA_DIR + "/item.csv";
-    private static final String TEST_USER_DATA = TEST_DATA_DIR + "/user.csv";
-    private static final String TEST_EVENT_DATA = TEST_DATA_DIR + "/event.csv";
+    /**
+     * the sample data shipped with this repo, relative to the working directory.
+     * override it by the optional 7th argument, eg: ../data/douban
+     */
+    private static final String DEFAULT_DATA_DIR = "data/test";
 
-    private static final String TEST_RECALL_DATA_DIR = TEST_DATA_DIR + "/recall";
-    private static final String TEST_RECALL_I2I_DATA = TEST_RECALL_DATA_DIR + "/i2i.csv";
-    private static final String TEST_RECALL_EMBEDDING_DATA = TEST_RECALL_DATA_DIR + "/embedding.csv";
-    private static final String TEST_RECALL_HOT_DATA = TEST_RECALL_DATA_DIR + "/hot.csv";
-    private static final String TEST_RECALL_NEW_DATA = TEST_RECALL_DATA_DIR + "/new.csv";
+    private static String testDataDir;
+    private static String testItemData;
+    private static String testUserData;
+    private static String testEventData;
+    private static String testRecallI2iData;
+    private static String testRecallEmbeddingData;
+    private static String testRecallHotData;
+    private static String testRecallNewData;
+
     private static final String ITEM_VECTOR_INDEX = "{\n" +
             "  \"mappings\": {\n" +
             "    \"properties\": {\n" +
@@ -55,9 +60,27 @@ public class InitStandalone {
             "  }\n" +
             "}";
 
+    static {
+        useDataDir(DEFAULT_DATA_DIR);
+    }
+
+    private static void useDataDir(String dataDir) {
+        testDataDir = Paths.get(dataDir).isAbsolute() ? dataDir
+                : System.getProperty("user.dir") + "/" + dataDir;
+        testItemData = testDataDir + "/item.csv";
+        testUserData = testDataDir + "/user.csv";
+        testEventData = testDataDir + "/event.csv";
+
+        String recallDataDir = testDataDir + "/recall";
+        testRecallI2iData = recallDataDir + "/i2i.csv";
+        testRecallEmbeddingData = recallDataDir + "/embedding.csv";
+        testRecallHotData = recallDataDir + "/hot.csv";
+        testRecallNewData = recallDataDir + "/new.csv";
+    }
+
     private static void initRedisItemData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_ITEM_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testItemData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -86,7 +109,7 @@ public class InitStandalone {
 
     private static void initRedisUserData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_USER_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testUserData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -116,7 +139,7 @@ public class InitStandalone {
 
     private static void initRedisEventData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_EVENT_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testEventData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -146,7 +169,7 @@ public class InitStandalone {
 
     private static void initRedisI2iData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_RECALL_I2I_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testRecallI2iData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -167,7 +190,7 @@ public class InitStandalone {
 
     private static void initRedisHotData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_RECALL_HOT_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testRecallHotData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -187,7 +210,7 @@ public class InitStandalone {
 
     private static void initRedisNewData(RedisTemplate redisTemplate) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_RECALL_NEW_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testRecallNewData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -207,7 +230,7 @@ public class InitStandalone {
 
     private static void initEsEmbeddingData(ElasticsearchClient esClient) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(TEST_RECALL_EMBEDDING_DATA));
+            Reader reader = Files.newBufferedReader(Paths.get(testRecallEmbeddingData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -221,7 +244,7 @@ public class InitStandalone {
                 if (!sceneItemVectorsMap.containsKey(scene)) {
                     sceneItemVectorsMap.put(scene, new LinkedList<>());
                 }
-                sceneItemVectorsMap.get(scene).add(new Pair<>(itemId, vector));
+                sceneItemVectorsMap.get(scene).add(Pair.of(itemId, vector));
             }
 
             for (Map.Entry<String, List<Pair<String, List<Double>>>> entry : sceneItemVectorsMap.entrySet()) {
@@ -299,10 +322,20 @@ public class InitStandalone {
 
 
     public static void main(String[] args) {
-        if (args.length != 6) {
-            log.error("Usage: java InitStandalone <redis_host> <redis_port>  <es_host> <es_port> <es_user> <es_password>");
+        if (args.length != 6 && args.length != 7) {
+            log.error("Usage: java InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir]");
             return;
         }
+
+        if (args.length == 7) {
+            useDataDir(args[6]);
+        }
+        if (!Files.isDirectory(Paths.get(testDataDir))) {
+            log.error("data dir not found: {}, please run it from the example repo root, "
+                    + "or pass the data dir as the 7th argument", testDataDir);
+            return;
+        }
+        log.info("init data from dir: {}", testDataDir);
 
         try {
             String redisHost = args[0];
