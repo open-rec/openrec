@@ -3,6 +3,7 @@ package com.openrec.example.web.service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,10 +58,47 @@ public class ItemService {
         return views;
     }
 
+    /**
+     * Renders the scoring breakdown as {@code recall=i2i:0.1700,hot:1.0000; rank=0.7700}.
+     * <p>
+     * A dash rather than 0 for a stage that did not run: "the rank engine is down" and "the model
+     * scored this 0" call for different reactions when tuning by hand.
+     */
+    private String buildMeta(ScoredId scored) {
+        StringBuilder meta = new StringBuilder("recall=");
+
+        Map<String, Double> recalls = scored.getRecallScores();
+        if (recalls != null && !recalls.isEmpty()) {
+            boolean first = true;
+            for (Map.Entry<String, Double> entry : recalls.entrySet()) {
+                if (!first) {
+                    meta.append(',');
+                }
+                meta.append(entry.getKey()).append(':').append(format(entry.getValue()));
+                first = false;
+            }
+        } else if (scored.getRecallFrom() != null) {
+            meta.append(scored.getRecallFrom()).append(':').append(format(scored.getRecallScore()));
+        } else {
+            meta.append('-');
+        }
+
+        return meta.append("; rank=").append(format(scored.getRankScore())).toString();
+    }
+
+    private String format(Double value) {
+        return value == null ? "-" : String.format("%.4f", value);
+    }
+
     private ItemView toView(ScoredId scored, String json) {
         ItemView view = new ItemView();
         view.setId(scored.getId());
         view.setScore(scored.getScore());
+        view.setRecallFrom(scored.getRecallFrom());
+        view.setRecallScore(scored.getRecallScore());
+        view.setRankScore(scored.getRankScore());
+        view.setRecallScores(scored.getRecallScores());
+        view.setMeta(buildMeta(scored));
 
         if (json == null) {
             view.setResolved(false);

@@ -27,9 +27,7 @@
     relatedItemId: null,
     /** ids from the previous load of this tab, used to mark what changed */
     previousIds: {},
-    /** exposure is reported once per item per load */
-    exposed: {},
-    /** itemId -> timestamp when the card entered the viewport */
+    /** itemId -> timestamp when the card entered the viewport, for dwell time */
     visibleSince: {},
     observer: null
   };
@@ -127,13 +125,6 @@
     });
   }
 
-  /** exposure fires automatically, so it should stay quiet unless it fails */
-  function reportExposure(itemId) {
-    if (state.exposed[itemId]) return;
-    state.exposed[itemId] = true;
-    report(itemId, 'expose');
-  }
-
   function reportStay(itemId) {
     var since = state.visibleSince[itemId];
     if (!since) return;
@@ -146,11 +137,16 @@
 
   // ---------------------------------------------------------------- viewport tracking
 
+  /**
+   * Only used for dwell time. Exposure is not tracked here: rendering a card counts as exposing it,
+   * and that is recorded server-side — by the DAG's collector node for the tabs it serves, and by
+   * the web layer for the two that read Redis directly. Reporting it from the viewport as well would
+   * double-write and change the meaning to "actually seen".
+   */
   function setupObserver() {
     if (state.observer) state.observer.disconnect();
 
     if (!('IntersectionObserver' in window)) {
-      // no viewport tracking available: report exposure for everything rendered instead
       return null;
     }
 
@@ -160,7 +156,6 @@
         if (!itemId) return;
 
         if (entry.isIntersecting) {
-          reportExposure(itemId);
           if (!state.visibleSince[itemId]) state.visibleSince[itemId] = Date.now();
         } else {
           reportStay(itemId);
@@ -178,12 +173,44 @@
 
   // ---------------------------------------------------------------- rendering
 
+  /** colour per recall channel, so a glance at the grid shows the mix */
+  var CHANNEL_CLASS = {
+    i2i: 'badge-i2i',
+    embedding: 'badge-embedding',
+    hot: 'badge-hot',
+    new: 'badge-fresh'
+  };
+
+  /**
+   * score is what the list is ordered by; meta carries the breakdown behind it, e.g.
+   * "recall=i2i:0.1700,hot:1.0000; rank=0.7700". An item recalled by several channels lists all of
+   * them, because whether channels agree is exactly what you need when tuning the strategy. A dash
+   * marks a stage that did not run, as opposed to one that scored 0.
+   */
+  function scoreBreakdown(item) {
+    var html = '<div class="card-score">score ' + Number(item.score).toFixed(4) + '</div>';
+    if (item.meta) {
+      html += '<div class="card-meta" title="点击可选中复制">' + item.meta + '</div>';
+    }
+    return html;
+  }
+
+  /** how many channels recalled this item, for the multi-hit badge */
+  function channelCount(item) {
+    return item.recallScores ? Object.keys(item.recallScores).length : (item.recallFrom ? 1 : 0);
+  }
+
   function card(item, isNew) {
     var node = document.createElement('div');
     node.className = 'card' + (item.resolved ? '' : ' unresolved');
     node.dataset.itemId = item.id;
 
     var badges = '<div class="card-badges">';
+    if (item.recallFrom) {
+      var hits = channelCount(item);
+      badges += '<span class="badge ' + (CHANNEL_CLASS[item.recallFrom] || '') + '">' +
+                item.recallFrom + (hits > 1 ? ' +' + (hits - 1) : '') + '</span>';
+    }
     if (isNew) badges += '<span class="badge badge-new">NEW</span>';
     if (state.tab === 'related' && item.id === state.relatedItemId) {
       badges += '<span class="badge badge-trigger">trigger</span>';
@@ -207,7 +234,7 @@
       '<div class="card-title">' + (item.title || item.id) + '</div>' +
       '<div class="card-id">' + item.id + '</div>' +
       fields +
-      '<div class="card-score">score ' + Number(item.score).toFixed(4) + '</div>' +
+      scoreBreakdown(item) +
       '<div class="card-actions">' +
       '<button data-act="collect">收藏</button>' +
       '<button data-act="buy">购买</button>' +
@@ -274,11 +301,6 @@
       if (observer) observer.observe(node);
     });
 
-    if (!observer) {
-      // no IntersectionObserver: everything rendered counts as exposed
-      items.forEach(function (item) { reportExposure(item.id); });
-    }
-
     state.previousIds[state.tab] = items.map(function (item) { return item.id; });
   }
 
@@ -297,7 +319,6 @@
 
   function load() {
     flushStay();
-    state.exposed = {};
     state.visibleSince = {};
 
     var url = '/api/tab/' + state.tab +

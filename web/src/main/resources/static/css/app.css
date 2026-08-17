@@ -153,6 +153,12 @@ body {
 .badge-new { background: #fff2cc; color: #8a6100; }
 .badge-trigger { background: #e6efff; color: #2b6cff; }
 
+/* one colour per recall channel, so the mix in a tab is visible at a glance */
+.badge-i2i { background: #e4f0ff; color: #1a5fd0; }
+.badge-embedding { background: #efe6ff; color: #6b3fc4; }
+.badge-hot { background: #ffe6e6; color: #c23434; }
+.badge-fresh { background: #e2f5e9; color: #1a7f45; }
+
 .card-title {
     font-size: 14px;
     font-weight: 600;
@@ -175,6 +181,23 @@ body {
     color: #2b6cff;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     margin-top: 6px;
+    line-height: 1.5;
+}
+
+/* the recall/rank breakdown; selectable so it can be copied while tuning */
+.card-meta {
+    font-size: 10px;
+    color: #5b6270;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #f5f6f8;
+    border: 1px solid #e9ebf0;
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-top: 4px;
+    line-height: 1.5;
+    word-break: break-all;
+    user-select: all;
+    cursor: text;
 }
 
 .card-actions { display: flex; gap: 6px; margin-top: 10px; }

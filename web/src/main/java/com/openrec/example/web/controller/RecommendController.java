@@ -1,9 +1,13 @@
 package com.openrec.example.web.controller;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.openrec.example.web.model.ItemView;
 import com.openrec.example.web.model.ScoredId;
+import com.openrec.example.web.service.FeedbackService;
 import com.openrec.example.web.service.ItemService;
 import com.openrec.example.web.service.RecallTableService;
 import com.openrec.example.web.service.RecommendService;
@@ -29,6 +34,9 @@ public class RecommendController {
 
     private static final String VIA_SDK = "rec-server /api/recommend (via rec-client)";
 
+    /** Tabs that read Redis directly and therefore have to do their own exposure bookkeeping. */
+    private static final Set<String> DIRECT_TABLE_TABS = new HashSet<>(Arrays.asList("hot", "new"));
+
     @Autowired
     private RecommendService recommendService;
 
@@ -37,6 +45,9 @@ public class RecommendController {
 
     @Autowired
     private ItemService itemService;
+
+    @Autowired
+    private FeedbackService feedbackService;
 
     @Value("${demo.user-id}")
     private String defaultUserId;
@@ -91,14 +102,16 @@ public class RecommendController {
                 body.put("personalized", true);
                 break;
             case "hot":
-                ids = recallTableService.hot(s, n);
+                ids = recallTableService.hot(s, n, feedbackService.exposedItems(u, s));
                 body.put("source", "redis hot:{" + s + "}");
-                body.put("note", "read from the recall table: the DAG cannot return one channel alone");
+                body.put("note", "read from the recall table, already-exposed items excluded here "
+                    + "because this path skips the DAG's filter node");
                 break;
             case "new":
-                ids = recallTableService.fresh(s, n);
+                ids = recallTableService.fresh(s, n, feedbackService.exposedItems(u, s));
                 body.put("source", "redis new:{" + s + "}");
-                body.put("note", "read from the recall table: the DAG's new channel is empty on this dataset");
+                body.put("note", "read from the recall table, already-exposed items excluded here; "
+                    + "the DAG's new channel is empty on this dataset");
                 break;
             default:
                 body.put("error", "unknown tab '" + name + "', expected guess|related|hot|new");
@@ -108,6 +121,15 @@ public class RecommendController {
         }
 
         List<ItemView> items = itemService.resolve(ids);
+
+        // Showing a card counts as exposing it. The DAG-backed tabs already get this from the
+        // collector node, so only the direct table reads need it here — without it those two tabs
+        // would keep serving what the user has already seen.
+        if (DIRECT_TABLE_TABS.contains(name) && !items.isEmpty()) {
+            List<String> shown = items.stream().map(ItemView::getId).collect(Collectors.toList());
+            body.put("exposeReported", feedbackService.reportBatch(u, s, shown, "expose"));
+        }
+
         body.put("count", items.size());
         body.put("items", items);
         return body;

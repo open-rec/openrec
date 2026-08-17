@@ -83,8 +83,11 @@ public class RecommendService {
             return Collections.emptyList();
         }
 
-        return results.stream()
-            .map(r -> new ScoredId(Ids.unquote(r.getId()), r.getScore()))
-            .collect(Collectors.toList());
+        return results.stream().map(result -> {
+            // rec-server hands back quoted ids on the i2i path; normalize before anything downstream
+            // tries to look them up
+            result.setId(Ids.unquote(result.getId()));
+            return ScoredId.from(result, null);
+        }).collect(Collectors.toList());
     }
 }

@@ -22,11 +22,13 @@ which behaviours move them?*
 
 Full setup: [example_standalone](../example_standalone).
 
-> **rec-server must include the push-event key fix.** Before it, `PushRedisService` built its key
-> from a template with two placeholders while passing three arguments, so the userId was dropped and
-> events landed in `event:scene_0:click:{}` instead of `event:{user_0}:scene_0:click`. Feedback was
-> accepted with HTTP 200 but no recall channel could ever read it, so recommendations never changed.
-> If your results look frozen, check `PushRedisService.java` first.
+> **This demo depends on three rec-server fixes.** Build rec-server from a tree that has them:
+>
+> - `PushRedisService` built its event key from a template with two placeholders while passing three arguments, so the userId was dropped and events landed in `event:scene_0:click:{}` instead of `event:{user_0}:scene_0:click`. Feedback returned HTTP 200 but no recall channel could read it, so recommendations never changed.
+> - `RedisService.getZSet(List, …)` did not strip the JSON quotes its members are stored with, while the single-key overload did. Ids from the i2i channel therefore arrived as `"item_5887"` and never matched the unquoted exposure set — **exposure filtering silently did nothing for that channel**, and it is the channel that dominates a personalized result.
+> - `CombineNode` never incremented its loop counter, so the configured `size` had no effect, and it did not de-duplicate across channels, so one item could occupy several slots and reach the client more than once.
+>
+> If results look frozen, or the same item keeps coming back after being shown, check those first.
 
 ## build and run
 
@@ -63,12 +65,60 @@ The backend is not ceremony. Two things require it:
 
 ## where each tab gets its data
 
-| tab | source |
+| tab | source | exposure filtering |
+|---|---|---|
+| 猜你喜欢 | `POST /api/recommend` via sdk, no explicit triggers | DAG (`filter` + `collector`) |
+| 相关推荐 | `POST /api/recommend` via sdk, with `itemIds=[selected]` | DAG (`filter` + `collector`) |
+| 热门推荐 | Redis `hot:{scene}` | applied by this module |
+| 新品推荐 | Redis `new:{scene}` | applied by this module |
+
+猜你喜欢 is the DAG's own output, so it is a blend of channels rather than one of them. Each card
+carries a `meta` line with the full breakdown behind its score:
+
+```
+item_5887   [i2i]        recall=i2i:0.1700; rank=-
+item_7888   [i2i +1]     recall=i2i:0.0959,hot:0.5833; rank=-
+item_6689   [hot]        recall=hot:1.0000; rank=-
+```
+
+**An item recalled by several channels lists all of them.** De-duplication decides which score
+*ranks* the item (the first channel wins), but the other channels' scores are kept rather than
+discarded — `item_7888` above is weak in i2i (0.0959) yet strong in hot (0.5833), and that
+disagreement is exactly what you need when adjusting strategy by hand. The badge shows `+n` for the
+extra channels; the structured form is in `recallScores` on the API response.
+
+Measured on the sample data with `size=40`: 5 of 40 items were hit by two channels, and `hot`
+produced 10 items in total while only 5 of them ranked by their hot score. Before this, those 5 hot
+scores were simply lost.
+
+`rank=-` means the rank stage did not run — `rankScore` is null rather than 0, so "the rank engine is
+down" stays distinguishable from "the model scored this 0". Start
+[rank-engine](https://github.com/open-rec/rank-engine) (step 8) to get real values, which render as
+`rank=0.7700`.
+
+The channel mix visible on the page matches rec-server's own log line for line. Measured after
+warm-up with `size=40`:
+
+| channel | rec-server log | shown on the page |
+|---|---|---|
+| i2i | `i2i with i2i size:26` | 26 |
+| embedding | `embedding with embedding size:10` | 9 — one duplicate merged away |
+| hot | `hot with hot item size:1000` | 5 — what was left of the size budget |
+| new | `new with new item size:0` | 0 |
+
+An item recalled by several channels is emitted once and ranks by the first channel's score
+(i2i → embedding → hot → new), with every channel's score preserved in `recallScores` / `meta`.
+
+Fields on each item in the API response:
+
+| field | meaning |
 |---|---|
-| 猜你喜欢 | `POST /api/recommend` via sdk, no explicit triggers |
-| 相关推荐 | `POST /api/recommend` via sdk, with `itemIds=[selected]` |
-| 热门推荐 | Redis `hot:{scene}` |
-| 新品推荐 | Redis `new:{scene}` |
+| `score` | what the list is ordered by: `recallScore + rankScore` |
+| `recallFrom` | the channel whose score ranks it |
+| `recallScore` | score entering the rank stage; null if it never got there |
+| `rankScore` | the rank engine's contribution; null if ranking did not run |
+| `recallScores` | every channel that recalled it → that channel's score |
+| `meta` | the same breakdown as one line, e.g. `recall=i2i:0.0959,hot:0.5833; rank=-` |
 
 The last two deliberately do **not** go through `/api/recommend`. The DAG in `graph.json` always runs
 every channel and merges them in `combine`; nothing in a request selects one. `RecommendReq.type`
@@ -90,10 +140,21 @@ Only two of the five feed the DAG:
 | behaviour | trigger | effect on the next recommendation |
 |---|---|---|
 | `click` | clicking a card | **yes** — `UserTriggerNode` reads recent clicks and uses them as recall triggers |
-| `expose` | card scrolls into view (`IntersectionObserver`, once per item per load) | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
+| `expose` | **rendering** a card, recorded server-side | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
 | `stay` | card leaves the viewport, value = dwell seconds | no — stored only |
 | `buy` | 购买 button | no — stored only |
 | `collect` | 收藏 button | no — stored only |
+
+**Rendering counts as exposure, and exposure hides the item.** Anything a tab shows is recorded as
+`expose` and will not come back until 重置曝光. For 猜你喜欢 and 相关推荐 the DAG does this itself —
+`CollectorNode` writes the records, `FilterNode` excludes them on the next request. 热门 and 新品
+bypass the DAG, so the web layer applies the same two steps around its table reads. The browser does
+not report exposure at all; doing it from the viewport would double-write and quietly redefine it as
+"actually seen".
+
+`stay` carries the dwell time in `value`, but **`value` is not persisted**: the event index is
+`event:{userId}:{scene}:{type}` → sorted set of `(itemId, timestamp)`, so there is nowhere to put it.
+The event reaches rec-server and the item lands in the sorted set; only the number is dropped.
 
 `UserTriggerNode` hardcodes `filterType = "click"` and `FilterNode` hardcodes `"expose"`, so the other
 three are written correctly to `event:{userId}:{scene}:{type}` and read by nobody. They are still

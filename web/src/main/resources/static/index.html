@@ -56,12 +56,18 @@
         <b>热门推荐</b> / <b>新品推荐</b> 直接读取 Redis 的 <code>hot:{scene}</code> / <code>new:{scene}</code> 召回表。
     </p>
     <p>
-        点击卡片上报 <code>click</code>，卡片进入视口自动上报 <code>expose</code>，离开视口上报 <code>stay</code>（驻留秒数），
+        <b>展示即曝光</b>：tab 里渲染出来的物品会被记为 <code>expose</code>，除非点「重置曝光」，否则不再出现。
+        猜你喜欢 / 相关推荐由 DAG 的 <code>collector</code> 节点写入并由 <code>filter</code> 节点过滤；
+        热门 / 新品绕过了 DAG，由本服务在返回结果时补上同样的记录与过滤。
+    </p>
+    <p>
+        点击卡片上报 <code>click</code>，卡片移出视口上报 <code>stay</code>（驻留秒数），
         按钮上报 <code>buy</code> / <code>collect</code>。所有上报均通过 SDK 推送到 rec-server。
     </p>
     <p class="dim">
         其中只有 <code>click</code>（成为下次召回的 trigger）和 <code>expose</code>（24 小时内被过滤）会改变推荐结果，
         <code>buy</code> / <code>collect</code> / <code>stay</code> 会被正确存储但当前没有节点消费。
+        卡片左上角徽标为该物品的召回通道，分数拆为 <code>recall</code> 与 <code>rank</code> 两段便于 debug。
     </p>
 </footer>
 

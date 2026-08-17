@@ -1,14 +1,19 @@
 package com.openrec.example.web.service;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.openrec.client.RecClient;
+import com.openrec.example.web.support.Ids;
 import com.openrec.proto.JsonRes;
 import com.openrec.proto.ProtoCode;
 import com.openrec.proto.biz.push.EventReq;
@@ -77,6 +82,69 @@ public class FeedbackService {
         }
         log.info("pushed {} user={} item={} scene={}", type, userId, itemId, scene);
         return true;
+    }
+
+    /**
+     * Reports one behaviour for many items in a single push.
+     * <p>
+     * Used to mark a whole page of cards as exposed. The DAG's collector node does this by itself for
+     * the tabs it serves; the tables read straight from Redis have no such step, so the web layer
+     * does it for them.
+     *
+     * @return true when rec-server acknowledged the batch
+     */
+    public boolean reportBatch(String userId, String scene, List<String> itemIds, String type) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return true;
+        }
+
+        String now = String.valueOf(System.currentTimeMillis() / 1000);
+        List<Event> events = new ArrayList<>(itemIds.size());
+        for (String itemId : itemIds) {
+            Event event = new Event();
+            event.setUserId(userId);
+            event.setItemId(itemId);
+            event.setScene(scene);
+            event.setType(type);
+            event.setValue("1");
+            event.setTime(now);
+            event.setTraceId(TRACE_ID);
+            event.setDeviceId("openrec-web");
+            event.setLogin(true);
+            events.add(event);
+        }
+
+        EventReq req = new EventReq();
+        req.setCmd(PushCmd.INSERT);
+        req.setData(events);
+
+        JsonRes<String> res;
+        try {
+            res = recClient.pushEvents(req);
+        } catch (RuntimeException e) {
+            log.warn("batch push {} failed: {}", type, e.getMessage());
+            return false;
+        }
+        if (res == null || res.getCode() != ProtoCode.SUCCESS) {
+            log.warn("batch push {} rejected: {}", type, res == null ? "no response" : res.getCode());
+            return false;
+        }
+        log.info("pushed {} x{} user={} scene={}", type, events.size(), userId, scene);
+        return true;
+    }
+
+    /** Item ids this user has already been shown in this scene. */
+    public Set<String> exposedItems(String userId, String scene) {
+        Set<String> members = redis.opsForZSet().range(String.format(EVENT_KEY, userId, scene, "expose"), 0, -1);
+        if (members == null || members.isEmpty()) {
+            return Collections.emptySet();
+        }
+        // ids written by InitStandalone carry JSON quotes; those pushed through the API do not
+        Set<String> exposed = new HashSet<>(members.size());
+        for (String member : members) {
+            exposed.add(Ids.unquote(member));
+        }
+        return exposed;
     }
 
     /** Per-type event counts, so the page can show the history driving the next recommendation. */
