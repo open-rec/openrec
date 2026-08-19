@@ -8,6 +8,35 @@ lands in Redis and Elasticsearch for `rec-server` to serve.
 
 ![cluster](doc/openrec_cluster.jpg "cluster architecture")
 
+## quick start
+
+From this directory, one command builds and starts the complete local cluster demo:
+
+```shell
+./start.sh
+```
+
+It starts the complete `bigdata-platform`, installs the daily-partition Hive tables, submits the
+Spark `data-processor`, starts `rank-engine`, loads serving samples, and starts cluster-mode
+`rec-server` plus the Web Demo. It also verifies a real recommendation and the
+`rec-server -> Kafka -> Spark -> Redis` ingestion path before returning.
+
+Stop every OpenRec demo application, streaming job, rank container, and cluster platform service:
+
+```shell
+./stop.sh
+```
+
+Stop applications while retaining the platform containers and data for a faster restart:
+
+```shell
+./stop.sh --keep-platform
+```
+
+Runtime builds, PID files, and logs are isolated under `.runtime/`. Startup failures trigger the
+same safe cleanup automatically. Docker volumes are retained even when the platform containers are
+stopped; only an explicit `bigdata-platform/platform.sh down -v` deletes stored data.
+
 ## how it differs from standalone
 
 | | standalone | cluster |
@@ -25,7 +54,7 @@ changes.
 | Component | Where | Status |
 |---|---|---|
 | [rec-server](https://github.com/open-rec/rec-server) | the online service | available |
-| [rec-algorithm](https://github.com/open-rec/rec-algorithm) | recall/rank computation | available (single-machine; distributed version pending) |
+| [rec-algorithm](https://github.com/open-rec/rec-algorithm) | local and distributed Spark recall/rank computation | available |
 | [recall-engine](https://github.com/open-rec/recall-engine) | Redis + Elasticsearch install and index design | available |
 | [bigdata-platform](https://github.com/open-rec/bigdata-platform) | ZooKeeper, Kafka, Spark via Docker Compose | available |
 | `data-processor` | Kafka → Redis/HDFS feature pipeline | available (Flink and Spark) |

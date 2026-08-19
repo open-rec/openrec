@@ -16,6 +16,9 @@ stack on one machine (macOS or Linux).
 | [example_standalone](example_standalone) | single-machine setup: Redis + Elasticsearch + rec-server |
 | [example_cluster](example_cluster) | distributed setup via Kafka with Flink or Spark feature processing |
 
+Both deployment examples provide `start.sh` and `stop.sh`; see the selected example directory for
+the full-chain smoke checks and the option that also stops its storage/platform services.
+
 ## architecture
 
 ### standalone
