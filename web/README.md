@@ -22,6 +22,9 @@ which behaviours move them?*
 
 Full setup: [example_standalone](../example_standalone).
 
+For the shortest path, run `../example_standalone/start.sh` from this directory. It initializes the
+whole recommendation chain and starts this demo last on port 12345.
+
 > **This demo depends on three rec-server fixes.** Build rec-server from a tree that has them:
 >
 > - `PushRedisService` built its event key from a template with two placeholders while passing three arguments, so the userId was dropped and events landed in `event:scene_0:click:{}` instead of `event:{user_0}:scene_0:click`. Feedback returned HTTP 200 but no recall channel could read it, so recommendations never changed.
@@ -38,13 +41,12 @@ mvn clean package -DskipTests
 java -jar target/rec-example-web-1.0-SNAPSHOT.jar
 ```
 
-Open http://localhost:8080
+Open http://localhost:12345
 
 Anything in `src/main/resources/application.properties` can be overridden on the command line:
 
 ```shell
 java -jar target/rec-example-web-1.0-SNAPSHOT.jar \
-  --server.port=9090 \
   --rec.server.endpoint=http://127.0.0.1:13579 \
   --spring.redis.host=127.0.0.1 \
   --demo.user-id=user_0 \
@@ -54,7 +56,7 @@ java -jar target/rec-example-web-1.0-SNAPSHOT.jar \
 ## architecture
 
 ```
-browser ──fetch──> web :8080 ──rec-client sdk──> rec-server :13579 ──> Redis / ES
+browser ──fetch──> web :12345 ──rec-client sdk──> rec-server :13579 ──> Redis / ES
                       └──────────read──────────> Redis (hot/new tables, item details, counters)
 ```
 
@@ -222,13 +224,13 @@ delete events.
 Usable without a browser:
 
 ```shell
-curl 'http://localhost:8080/api/tab/guess?scene=scene_0&userId=user_0&size=5'
+curl 'http://localhost:12345/api/tab/guess?scene=scene_0&userId=user_0&size=5'
 
-curl -X POST http://localhost:8080/api/feedback \
+curl -X POST http://localhost:12345/api/feedback \
   -H 'Content-Type: application/json' \
   -d '{"userId":"user_0","itemId":"item_42","scene":"scene_0","type":"click"}'
 
-curl 'http://localhost:8080/api/state?userId=user_0&scene=scene_0'
+curl 'http://localhost:12345/api/state?userId=user_0&scene=scene_0'
 ```
 
 ## notes

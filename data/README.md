@@ -61,7 +61,7 @@ Then point the loader at it:
 ```shell
 cd example
 java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone 127.0.0.1 6379 127.0.0.1 9200 elastic '<password>' data/douban
+  com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password' data/douban
 ```
 
 ## schema

@@ -54,7 +54,7 @@ synthetic dataset committed here:
 
 ```shell
 java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone 127.0.0.1 6379 127.0.0.1 9200 elastic '<es-password>'
+  com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 ```
 
 Full argument reference, the expected CSV layout and what gets written where: [init](init).
@@ -64,18 +64,18 @@ Full argument reference, the expected CSV layout and what gets written where: [i
 ### redis
 
 ```shell
-redis-cli DBSIZE
-redis-cli GET 'user:{user_0}'
-redis-cli GET 'item:{item_0}'
-redis-cli ZCARD 'event:{user_247}:scene_0:click'
-redis-cli ZRANGE 'i2i:{item_2}:scene_0' 0 4 WITHSCORES
-redis-cli ZCARD 'hot:{scene_0}'
+docker exec redis redis-cli DBSIZE
+docker exec redis redis-cli GET 'user:{user_0}'
+docker exec redis redis-cli GET 'item:{item_0}'
+docker exec redis redis-cli ZCARD 'event:{user_247}:scene_0:click'
+docker exec redis redis-cli ZRANGE 'i2i:{item_2}:scene_0' 0 4 WITHSCORES
+docker exec redis redis-cli ZCARD 'hot:{scene_0}'
 ```
 
 Users and items are stored as JSON strings:
 
 ```
-127.0.0.1:6379> GET 'item:{item_0}'
+127.0.0.1:6380> GET 'item:{item_0}'
 {"id":"item_0","weight":5,"title":"title_0","category":"category_98","tags":"tags_26",
  "scene":"scene_2","pubTime":"1667355833","modifyTime":"1667037573","expireTime":"1667494042",
  "status":1,"extFields":"{}"}

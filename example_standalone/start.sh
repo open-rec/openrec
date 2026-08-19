@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+STATE_DIR="${SCRIPT_DIR}/.runtime"
+LOG_DIR="${STATE_DIR}/logs"
+BUILD_DIR="${STATE_DIR}/build"
+
+note() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+die() { echo "error: $*" >&2; exit 1; }
+
+if command -v mvn >/dev/null 2>&1; then
+  MVN="$(command -v mvn)"
+else
+  MVN="${WORKSPACE}/.tools/apache-maven-3.9.9/bin/mvn"
+fi
+
+if [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+  JAVA="${JAVA_HOME}/bin/java"
+elif command -v java >/dev/null 2>&1 && command -v javac >/dev/null 2>&1; then
+  JAVA="$(command -v java)"
+else
+  export JAVA_HOME="${WORKSPACE}/.tools/jdk8u462-b08"
+  export PATH="${JAVA_HOME}/bin:${PATH}"
+  JAVA="${JAVA_HOME}/bin/java"
+fi
+
+[[ -x "${MVN}" ]] || die "Maven not found; install Maven 3.6+ or place it under .tools"
+[[ -x "${JAVA}" ]] || die "Java not found; install OpenJDK 8 or Oracle JDK 8"
+"${JAVA}" -version 2>&1 | head -n 1 | grep -Eq 'version "1\.8\.' || die "JDK 8 is required"
+command -v javac >/dev/null 2>&1 || [[ -x "${JAVA_HOME:-}/bin/javac" ]] || die "a JDK is required, not a JRE"
+command -v docker >/dev/null 2>&1 || die "Docker is required"
+command -v curl >/dev/null 2>&1 || die "curl is required"
+command -v rsync >/dev/null 2>&1 || die "rsync is required for the isolated Java build"
+
+MVN_ARGS=()
+if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
+  MVN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
+fi
+
+mkdir -p "${LOG_DIR}"
+
+for managed_pid_file in "${STATE_DIR}/rec-server.pid" "${STATE_DIR}/web.pid"; do
+  if [[ -f "${managed_pid_file}" ]]; then
+    managed_pid="$(cat "${managed_pid_file}")"
+    if [[ "${managed_pid}" =~ ^[0-9]+$ ]] && kill -0 "${managed_pid}" 2>/dev/null; then
+      die "standalone applications are already running; use ${SCRIPT_DIR}/stop.sh before restarting"
+    fi
+    rm -f "${managed_pid_file}"
+  fi
+done
+
+wait_for_url() {
+  local name="$1" url="$2" attempts="${3:-60}"
+  local i
+  for ((i = 1; i <= attempts; i++)); do
+    if curl --noproxy '*' -fsS "${url}" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  die "${name} did not become ready: ${url}"
+}
+
+port_in_use() {
+  (echo >/dev/tcp/127.0.0.1/"$1") >/dev/null 2>&1
+}
+
+start_jar() {
+  local name="$1" pid_file="$2" log_file="$3"
+  shift 3
+  nohup "$@" >"${log_file}" 2>&1 &
+  local pid=$!
+  echo "${pid}" >"${pid_file}"
+  note "${name} started (pid ${pid}, log ${log_file})"
+}
+
+note "Starting standalone Redis and Elasticsearch"
+"${WORKSPACE}/bigdata-platform/platform.sh" up standalone
+"${WORKSPACE}/bigdata-platform/platform.sh" smoke standalone
+
+note "Preparing an isolated Java build workspace"
+mkdir -p "${BUILD_DIR}/rec-server" "${BUILD_DIR}/sdk/java-client" \
+  "${BUILD_DIR}/example/init" "${BUILD_DIR}/example/web"
+rsync -a --delete --exclude .git --exclude target/ \
+  "${WORKSPACE}/rec-server/" "${BUILD_DIR}/rec-server/"
+rsync -a --delete --exclude .git --exclude target/ \
+  "${WORKSPACE}/sdk/java-client/" "${BUILD_DIR}/sdk/java-client/"
+rsync -a --delete --exclude target/ \
+  "${WORKSPACE}/example/init/" "${BUILD_DIR}/example/init/"
+rsync -a --delete --exclude target/ \
+  "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
+
+note "Building rec-server, Java SDK, data loader, and Web Demo"
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" clean install -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
+
+note "Loading standalone sample data"
+(
+  cd "${WORKSPACE}/example"
+  "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar" \
+    com.openrec.example.InitStandalone \
+    127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
+)
+
+redis_size="$(docker exec redis redis-cli DBSIZE | tr -d '\r')"
+[[ "${redis_size}" =~ ^[1-9][0-9]*$ ]] || die "sample data was not loaded into Redis"
+docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
+  'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
+  || die "sample vectors were not loaded into Elasticsearch"
+
+if curl --noproxy '*' -fsS http://127.0.0.1:13579/health >/dev/null 2>&1; then
+  note "Using the rec-server already running on port 13579"
+else
+  port_in_use 13579 && die "port 13579 is occupied by a process that is not a healthy rec-server"
+  start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
+    "${JAVA}" -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
+    --spring.profiles.active=dev
+  wait_for_url "rec-server" http://127.0.0.1:13579/health
+fi
+
+web_port=12345
+port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"
+
+start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
+  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
+  "--server.port=${web_port}"
+wait_for_url "Web Demo" "http://127.0.0.1:${web_port}/"
+echo "${web_port}" >"${STATE_DIR}/web.port"
+
+cat <<EOF
+
+Standalone recommendation chain is ready.
+Web Demo:  http://127.0.0.1:${web_port}
+API health: http://127.0.0.1:13579/health
+Stop apps:  ${SCRIPT_DIR}/stop.sh
+EOF

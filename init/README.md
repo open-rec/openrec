@@ -20,6 +20,15 @@ Produces `target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar`.
 
 ## run
 
+Start Redis and Elasticsearch from the sibling `bigdata-platform` repository first:
+
+```shell
+cd bigdata-platform
+./platform.sh up standalone
+./platform.sh smoke standalone
+cd ..
+```
+
 ```shell
 java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
   com.openrec.example.InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir]
@@ -27,9 +36,9 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
 
 | Argument | Example |
 |---|---|
-| `redis_host` `redis_port` | `127.0.0.1` `6379` |
+| `redis_host` `redis_port` | `127.0.0.1` `6380` |
 | `es_host` `es_port` | `127.0.0.1` `9200` |
-| `es_user` `es_password` | `elastic` `<your-password>` |
+| `es_user` `es_password` | `elastic` `openrec-es-password` |
 | `data_dir` | optional, defaults to `data/test` |
 
 `data_dir` is resolved **relative to the working directory**, so run it from the repo root:
@@ -37,7 +46,7 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
 ```shell
 cd example
 java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone 127.0.0.1 6379 127.0.0.1 9200 elastic '<your-password>'
+  com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 ```
 
 Loading the bundled sample dataset takes roughly 20 seconds and writes about 58,000 Redis keys plus
@@ -85,10 +94,10 @@ Key layout reference:
 ## verify
 
 ```shell
-redis-cli DBSIZE
-redis-cli GET 'user:{user_0}'
-redis-cli ZCARD 'event:{user_247}:scene_0:click'
-curl -k -u elastic:<password> 'https://localhost:9200/_cat/indices/*vector*?v'
+docker exec redis redis-cli DBSIZE
+docker exec redis redis-cli GET 'user:{user_0}'
+docker exec redis redis-cli ZCARD 'event:{user_247}:scene_0:click'
+curl -k -u elastic:openrec-es-password 'https://localhost:9200/_cat/indices/*vector*?v'
 ```
 
 ## notes
