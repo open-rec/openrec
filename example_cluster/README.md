@@ -3,10 +3,8 @@
 The distributed deployment: data arrives through Kafka, is processed by a streaming/batch pipeline, and
 lands in Redis and Elasticsearch for `rec-server` to serve.
 
-> **Status: incomplete.** The stream/batch processing component (`data-processor`) is not published
-> yet, so this guide cannot be followed end to end. Everything below — the infrastructure and
-> `rec-server` in `prod` mode — does work, and is useful for testing the Kafka ingest path. For a
-> setup that runs to completion today, use [example_standalone](../example_standalone).
+> `data-processor` now provides equivalent Flink and Spark Structured Streaming implementations.
+> Choose one engine in production; both write online features to Redis and durable training data to HDFS.
 
 ![cluster](doc/openrec_cluster.jpg "cluster architecture")
 
@@ -30,8 +28,9 @@ changes.
 | [rec-algorithm](https://github.com/open-rec/rec-algorithm) | recall/rank computation | available (single-machine; distributed version pending) |
 | [recall-engine](https://github.com/open-rec/recall-engine) | Redis + Elasticsearch install and index design | available |
 | [bigdata-platform](https://github.com/open-rec/bigdata-platform) | ZooKeeper, Kafka, Spark via Docker Compose | available |
-| `data-processor` | Kafka → Redis/ES pipeline | **not published** |
-| Hadoop, Hive, Flink | batch/stream infrastructure | not provided by this project |
+| `data-processor` | Kafka → Redis/HDFS feature pipeline | available (Flink and Spark) |
+| Hadoop, Hive, Spark | storage and compute infrastructure | available in `bigdata-platform` |
+| Flink runtime | alternative streaming runtime | available in `bigdata-platform` |
 
 ## 1. storage
 
@@ -85,14 +84,21 @@ bash bin/kafka-server-start.sh config/server.properties &
 | `user` | user rows |
 | `event` | behaviour events |
 
-## 3. spark (optional, for offline compute)
+## 3. real-time feature processor
 
 ```shell
 bash start_spark_cluster.sh          # master 8080, workers 8081/8082, JupyterLab 8888
+cd ../data-processor
+mvn -pl spark -am -DskipTests package
+spark-submit --class com.openrec.dp.spark.SparkFeatureJob \
+  --master spark://spark-master:7077 spark/target/rec-spark-1.0-SNAPSHOT.jar
 ```
 
-`rec-algorithm` currently runs on a single machine (pandas / torch); there is no Spark job in the repo
-yet. Use this cluster to prototype the distributed version.
+Alternatively start `bigdata-platform/start_flink_cluster.sh`, build `-pl flink`, and submit
+`com.openrec.dp.flink.DpJob` to its Flink 1.14 cluster.
+Both jobs use the shared `feature-core` formulas, update Redis snapshots, and append raw records plus
+feature snapshots to HDFS. The persisted data can be joined by entity and `asOfTime` for offline
+`rec-algorithm` training.
 
 ## 4. rec-server in cluster mode
 
@@ -120,28 +126,18 @@ java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=cluster
 The `prod` profile only changes where **pushed data** goes: `POST /api/push/*` now produces to Kafka
 instead of writing Redis. Recommendation serving still reads Redis and Elasticsearch directly.
 
-## 5. the missing link
+## 5. feature data flow
 
-With `pushKafkaService` active, nothing consumes those topics yet — that is `data-processor`'s job:
-read the `item` / `user` / `event` topics, apply the index layout from
-[recall-engine](https://github.com/open-rec/recall-engine/blob/main/redis/design.md), and write Redis
-and Elasticsearch.
-
-Until it is published, you can still exercise the ingest path by consuming the topics manually:
+With `pushKafkaService` active, `data-processor` consumes the `item`, `user`, and `event` topics.
+Inspect the source stream when diagnosing ingestion:
 
 ```shell
 docker exec -it <kafka-container> \
   kafka-console-consumer --bootstrap-server kafka-1:19092 --topic event --from-beginning
 ```
 
-To seed data for serving in the meantime, run the standalone loader — it writes Redis and
-Elasticsearch directly, bypassing Kafka:
-
-```shell
-cd example
-java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone <redis_host> 6379 <es_host> 9200 elastic '<password>'
-```
+Raw records are stored under `/openrec/raw`; online user/item behavioral snapshots are stored under
+`/openrec/features` and Redis keys `feature:user:{id}` / `feature:item:{id}`.
 
 ## verify
 
