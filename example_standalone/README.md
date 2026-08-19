@@ -122,11 +122,21 @@ flow from `combine` directly through the disabled rank node without contacting `
 
 ```shell
 cd rec-server/server
-java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=dev
+java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=standalone
 ```
 
-The optional operation plugin may be copied to `rec-server/server/plugins/`; without it, the
-operation node passes candidates through unchanged.
+The default operation rule allocates results as 30% i2i, 30% embedding, 20% hot, and 20% new,
+selecting the highest scores available inside those quotas. For this manual startup, copy the plugin
+before launching the server:
+
+```shell
+mkdir -p plugins
+cp ../contrib/target/rec-contrib-1.0-SNAPSHOT.jar plugins/
+```
+
+The one-command launcher copies the plugin and passes its absolute path automatically. To try the
+random insertion strategy instead, set `operationName` to `RandomInsertOperationRule`; the bundled
+configuration reserves 10% hot and 10% new candidates at random positions.
 
 ## 5. Verify recommendations
 

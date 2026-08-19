@@ -17,7 +17,7 @@ lands in Redis and Elasticsearch for `rec-server` to serve.
 | ingest | push API writes Redis directly (`pushRedisService`) | push API publishes to Kafka (`pushKafkaService`) |
 | processing | offline scripts run by hand | streaming + batch pipeline |
 | offline compute | `rec-algorithm` on one machine | Spark / Hive |
-| profile | `--spring.profiles.active=dev` | `--spring.profiles.active=prod` |
+| profile | `--spring.profiles.active=standalone` | `--spring.profiles.active=cluster` |
 
 The serving path is identical — same DAG, same Redis/Elasticsearch key layout. Only how data gets in
 changes.
@@ -94,7 +94,7 @@ bash start_spark_cluster.sh          # master 8080, workers 8081/8082, JupyterLa
 `rec-algorithm` currently runs on a single machine (pandas / torch); there is no Spark job in the repo
 yet. Use this cluster to prototype the distributed version.
 
-## 4. rec-server in prod mode
+## 4. rec-server in cluster mode
 
 ```shell
 git clone https://github.com/open-rec/rec-server.git
@@ -102,7 +102,7 @@ cd rec-server
 mvn clean package -DskipTests
 ```
 
-Set the storage and Kafka endpoints in `server/src/main/resources/application-prod.properties`:
+Set the storage and Kafka endpoints in `server/src/main/resources/application-cluster.properties`:
 
 ```properties
 server.pushService=pushKafkaService
@@ -114,7 +114,7 @@ spring.kafka.bootstrap-servers=kafka-1:19092,kafka-2:29092,kafka-3:39092
 
 ```shell
 cd server
-java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=prod
+java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=cluster
 ```
 
 The `prod` profile only changes where **pushed data** goes: `POST /api/push/*` now produces to Kafka

@@ -98,18 +98,11 @@ down" stays distinguishable from "the model scored this 0". Start
 [rank-engine](https://github.com/open-rec/rank-engine) (step 8) to get real values, which render as
 `rank=0.7700`.
 
-The channel mix visible on the page matches rec-server's own log line for line. Measured after
-warm-up with `size=40`:
-
-| channel | rec-server log | shown on the page |
-|---|---|---|
-| i2i | `i2i with i2i size:26` | 26 |
-| embedding | `embedding with embedding size:10` | 9 — one duplicate merged away |
-| hot | `hot with hot item size:1000` | 5 — what was left of the size budget |
-| new | `new with new item size:0` | 0 |
-
-An item recalled by several channels is emitted once and ranks by the first channel's score
-(i2i → embedding → hot → new), with every channel's score preserved in `recallScores` / `meta`.
+Combine de-duplicates channels in the order i2i → embedding → hot → new, so the first channel becomes
+an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
+standalone operation rule then selects 30% i2i, 30% embedding, 20% hot, and 20% new candidates and
+orders the selected items by score. If a channel is short, its quota is filled by the highest-scoring
+unused candidates, so the observed mix can differ from the target rather than returning fewer items.
 
 Fields on each item in the API response:
 
@@ -127,10 +120,12 @@ every channel and merges them in `combine`; nothing in a request selects one. `R
 exists but no node reads it, so "hot only" is not expressible — asking anyway would return exactly
 what 猜你喜欢 returns, under a label that lies.
 
-The `new` channel has a second problem: `InitStandalone` writes a 0..1 normalized score into
-`new:{scene}`, while `NewNode` filters by a `[now - duration, now]` **timestamp** range. Those never
-intersect, so that channel returns 0 items on this dataset no matter what. Reading the table directly
-is the only way to show what the tab is named after.
+`InitStandalone` maps the normalized `new.csv` freshness score into the current Unix-time domain
+(`score × one load-time timestamp`). This preserves the source ordering while allowing `NewNode` to
+apply its `[now - duration, now]` query. Both `NewNode` and the dedicated tab divide the stored score
+by the query-time Unix timestamp before returning it, keeping the displayed business score in the
+`0～1` range. The dedicated tab still reads the table directly because a request cannot select only
+one DAG channel.
 
 Both tabs display their source in the UI, so nothing personalized-looking is actually a plain table
 read.
@@ -246,6 +241,6 @@ first request after a restart pays for the TLS handshake to Elasticsearch — me
 engine cancels the node, the interrupt is swallowed, and that channel contributes nothing until
 roughly the third request. Raise the timeout in `graph.json` if you want it warm immediately.
 
-**新品推荐 ordering.** The sample dataset's `pub_time` values are all from 2022, so nothing is
-genuinely new. The tab shows `new:{scene}` ordered by its freshness score, which is the most that
-data supports.
+**新品推荐 ordering.** The sample dataset's normalized freshness score is rebased at initialization
+time. It demonstrates the online time-window query but does not claim the synthetic items were
+actually published today.

@@ -11,7 +11,7 @@ here so the standalone walkthrough works out of the box. This is the default `da
 |---|---|---|
 | `test/user.csv` | 10,000 | `user_0` … `user_9999` |
 | `test/item.csv` | 10,000 | `item_0` … `item_9999` |
-| `test/event.csv` | 100,000 | `click` and `expose` events, ~10% clicks |
+| `test/event.csv` | 100,001 | `click` and `expose` events, ~10% clicks |
 | `test/recall/i2i.csv` | 111,359 | item-to-item pairs |
 | `test/recall/embedding.csv` | 28,974 | 10-dimensional item vectors |
 | `test/recall/hot.csv` | 6,000 | 2,000 per scene |
@@ -19,13 +19,15 @@ here so the standalone walkthrough works out of the box. This is the default `da
 
 Three scenes: `scene_0`, `scene_1`, `scene_2`, split roughly evenly across events.
 
-Useful handles when testing: `user_247` has 12 clicks in `scene_0`, which gives the `userTrigger` node
-enough to drive i2i and embedding recall.
+Useful handles when testing: `user_247` has 12 clicks in `scene_0`. The default Demo user `user_0`
+also has a scene_0 click on `item_8571`, which is guaranteed to have an i2i recall table.
 
 Two things to expect from this data:
 
-- **`new` recall returns nothing.** The `new` node only accepts items published within its configured window (24h by default) and these `pub_time` values are from 2022.
-- **Timestamps are fixed at generation time**, so freshness-sensitive behaviour needs regenerating rather than waiting.
+- The loader maps each normalized `new.csv` score into the current Unix-time domain. This preserves
+  freshness order and ensures the highest-scored rows fall inside `NewNode`'s configured window.
+- Event and item timestamps remain fixed at generation time; only the new recall table is rebased
+  when it is loaded.
 
 Regenerate (writes to `rec-algorithm/data/`, not here):
 

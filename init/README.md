@@ -82,11 +82,18 @@ in [model](https://github.com/open-rec/model).
 | `event.csv` | `event:{userId}:{scene}:{type}` | sorted set, score = event time |
 | `recall/i2i.csv` | `i2i:{leftItem}:{scene}` | sorted set |
 | `recall/hot.csv` | `hot:{scene}` | sorted set |
-| `recall/new.csv` | `new:{scene}` | sorted set |
+| `recall/new.csv` | `new:{scene}` | sorted set, score = normalized score × load-time Unix timestamp |
 | `recall/embedding.csv` | `{scene}-item-vector-index` | Elasticsearch, `dense_vector` (10 dims) |
 
 The vector indexes are **dropped and recreated** on every run; Redis keys are overwritten in place, so
 stale keys from a previous dataset survive. Flush Redis if you switch datasets.
+
+`new.csv` supplies a normalized freshness score in `[0, 1]`. The loader projects it onto the Unix
+time domain expected by `NewNode` by multiplying every score by one timestamp captured at the start
+of the new-table import. This preserves ordering and lets the configured duration query select the
+freshest rows. `NewNode` and the Web Demo divide the stored value by the query-time Unix timestamp
+before returning it, so clients continue to receive a normalized score. Future online writes can
+use their event Unix timestamp directly.
 
 Key layout reference:
 [recall-engine](https://github.com/open-rec/recall-engine/blob/main/redis/design.md).

@@ -110,8 +110,8 @@ public class RecommendController {
             case "new":
                 ids = recallTableService.fresh(s, n, feedbackService.exposedItems(u, s));
                 body.put("source", "redis new:{" + s + "}");
-                body.put("note", "read from the recall table, already-exposed items excluded here; "
-                    + "the DAG's new channel is empty on this dataset");
+                body.put("note", "read from the recall table; already-exposed items are excluded "
+                    + "here because this path skips the DAG's filter node");
                 break;
             default:
                 body.put("error", "unknown tab '" + name + "', expected guess|related|hot|new");

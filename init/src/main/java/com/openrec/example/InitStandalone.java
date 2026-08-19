@@ -209,6 +209,10 @@ public class InitStandalone {
     }
 
     private static void initRedisNewData(RedisTemplate redisTemplate) {
+        // NewNode queries this ZSET by a Unix-time window. Preserve the input's normalized
+        // freshness ordering while projecting it onto the current timestamp range. Capturing the
+        // timestamp once keeps scores comparable across every row in this initialization run.
+        double currentUnixTimestamp = System.currentTimeMillis() / 1000.0;
         try {
             Reader reader = Files.newBufferedReader(Paths.get(testRecallNewData));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
@@ -220,7 +224,8 @@ public class InitStandalone {
                 String scene = record.get("scene");
                 String item = record.get("item");
                 Double score = Double.valueOf(record.get("score"));
-                redisTemplate.opsForZSet().add(String.format("new:{%s}", scene), item, score);
+                redisTemplate.opsForZSet().add(
+                        String.format("new:{%s}", scene), item, score * currentUnixTimestamp);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

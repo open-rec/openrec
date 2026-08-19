@@ -95,6 +95,9 @@ note "Building rec-server, Java SDK, data loader, and Web Demo"
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
+mkdir -p "${BUILD_DIR}/rec-server/server/plugins"
+cp "${BUILD_DIR}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
+  "${BUILD_DIR}/rec-server/server/plugins/"
 
 note "Loading standalone sample data"
 (
@@ -106,6 +109,14 @@ note "Loading standalone sample data"
 
 redis_size="$(docker exec redis redis-cli DBSIZE | tr -d '\r')"
 [[ "${redis_size}" =~ ^[1-9][0-9]*$ ]] || die "sample data was not loaded into Redis"
+now_secs="$(date +%s)"
+new_window_count="$(docker exec redis redis-cli ZCOUNT 'new:{scene_0}' "$((now_secs - 86400))" "${now_secs}" | tr -d '\r')"
+[[ "${new_window_count}" =~ ^[1-9][0-9]*$ ]] \
+  || die "new items were not loaded into the current 24-hour window"
+i2i_count="$(docker exec redis redis-cli ZCARD 'i2i:{item_8571}:scene_0' | tr -d '\r')"
+[[ "${i2i_count}" =~ ^[1-9][0-9]*$ ]] || die "the default i2i trigger item has no recall data"
+docker exec redis redis-cli ZSCORE 'event:{user_0}:scene_0:click' '"item_8571"' | grep -Eq '[0-9]+' \
+  || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
@@ -115,8 +126,10 @@ if curl --noproxy '*' -fsS http://127.0.0.1:13579/health >/dev/null 2>&1; then
 else
   port_in_use 13579 && die "port 13579 is occupied by a process that is not a healthy rec-server"
   start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
-    "${JAVA}" -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
-    --spring.profiles.active=dev
+    "${JAVA}" \
+    "-Dopenrec.operation.plugin=${BUILD_DIR}/rec-server/server/plugins/rec-contrib-1.0-SNAPSHOT.jar" \
+    -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
+    --spring.profiles.active=standalone
   wait_for_url "rec-server" http://127.0.0.1:13579/health
 fi
 
