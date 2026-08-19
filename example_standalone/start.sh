@@ -121,17 +121,42 @@ docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
 
-if curl --noproxy '*' -fsS http://127.0.0.1:13579/health >/dev/null 2>&1; then
-  note "Using the rec-server already running on port 13579"
-else
-  port_in_use 13579 && die "port 13579 is occupied by a process that is not a healthy rec-server"
-  start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
-    "${JAVA}" \
-    "-Dopenrec.operation.plugin=${BUILD_DIR}/rec-server/server/plugins/rec-contrib-1.0-SNAPSHOT.jar" \
-    -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
-    --spring.profiles.active=standalone
-  wait_for_url "rec-server" http://127.0.0.1:13579/health
-fi
+port_in_use 13579 && die "rec-server port 13579 is already occupied; stop that process before starting standalone"
+start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
+  "${JAVA}" \
+  "-Dopenrec.operation.plugin=${BUILD_DIR}/rec-server/server/plugins/rec-contrib-1.0-SNAPSHOT.jar" \
+  -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
+  --spring.profiles.active=standalone
+wait_for_url "rec-server" http://127.0.0.1:13579/health
+
+note "Verifying the complete standalone recommendation chain"
+recommend_response=""
+recommend_ok=false
+for attempt in 1 2 3 4 5; do
+  # A previous smoke request must not affect this attempt through the expose filter.
+  docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
+  recommend_response="$(curl --noproxy '*' -fsS -X POST \
+    http://127.0.0.1:13579/api/recommend \
+    -H 'Content-Type: application/json' \
+    --data '{"requestId":"standalone-smoke","body":{"scene":"scene_0","size":12,"userId":"user_0","deviceId":"standalone-smoke","type":"click","debug":false}}')"
+  recommend_ok=true
+  for channel in i2i embedding hot new; do
+    if ! grep -Fq "\"recallFrom\":\"${channel}\"" <<<"${recommend_response}"; then
+      recommend_ok=false
+      break
+    fi
+  done
+  [[ "${recommend_ok}" == true ]] && break
+  sleep 1
+done
+docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
+[[ "${recommend_ok}" == true ]] \
+  || die "recommendation smoke test did not return i2i, embedding, hot, and new: ${recommend_response}"
+grep -Fq 'rank or rank service not open' "${LOG_DIR}/rec-server.log" \
+  || die "standalone recommendation unexpectedly did not bypass rank service"
+grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin' "${LOG_DIR}/rec-server.log" \
+  && die "standalone log contains an unexpected Rank or Kafka service call"
+note "Recommendation smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
 
 web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"

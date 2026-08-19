@@ -1,7 +1,7 @@
 # example standalone
 
 Run the minimum OpenRec recommendation chain on one machine. Redis and Elasticsearch come from the
-sibling `bigdata-platform` repository; `rec-server` runs with its `dev` profile and writes pushed
+sibling `bigdata-platform` repository; `rec-server` runs with its `standalone` profile and writes pushed
 users, items, and events directly to Redis. Kafka, Spark, and `rank-engine` are not required.
 
 ![standalone](doc/openrec_standalone.jpg "standalone architecture")
@@ -29,7 +29,7 @@ defined in `bigdata-platform/.env`:
 | rec-server | `http://127.0.0.1:13579` | none |
 | Web Demo | `http://127.0.0.1:12345` | none |
 
-The `rec-server` dev properties already match these defaults. If `.env` is changed, override the
+The `rec-server` standalone properties already match these defaults. If `.env` is changed, override the
 corresponding Spring properties when starting the server and pass the same values to the loader.
 
 ## One-command experience
@@ -41,9 +41,10 @@ Run the complete chain from infrastructure through the visual demo:
 ```
 
 The script requires JDK 8, starts and checks the standalone containers, builds Java components,
-loads sample data, then starts rec-server and the Web Demo in the background. Open the URL printed
-at completion: `http://127.0.0.1:12345`. The script exits with a clear error if that port is already
-occupied.
+loads sample data, starts rec-server, and sends a real recommendation request before starting the Web
+Demo. The smoke request must contain i2i, embedding, hot, and new results and must bypass Rank and
+Kafka. Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear
+error if either application port is already occupied.
 
 Java components are built from current sources in an isolated `.runtime/build` tree. This avoids
 permission or stale-artifact problems when repository `target/` directories were created in a
@@ -117,8 +118,9 @@ curl -k -u elastic:openrec-es-password 'https://127.0.0.1:9200/_cat/indices?v'
 
 ## 4. Start rec-server
 
-The default graph has `open=false` on the `rank` node for the Standalone chain. Recall results therefore
-flow from `combine` directly through the disabled rank node without contacting `rank-engine`.
+The graph keeps the `rank` node enabled so Cluster can use the same DAG. In Standalone,
+`application-standalone.properties` sets `rank.open=false`; RankNode therefore passes the complete
+combine result to the operation strategy without contacting `rank-engine`.
 
 ```shell
 cd rec-server/server
