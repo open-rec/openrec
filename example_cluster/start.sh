@@ -61,7 +61,7 @@ for pid_file in "${STATE_DIR}/web.pid"; do
   fi
 done
 
-for required_port in 13579 12345 8123 8091; do
+for required_port in 13579 12345 8123 8091 8095; do
   if (echo >/dev/tcp/127.0.0.1/"${required_port}") >/dev/null 2>&1; then
     die "required port ${required_port} is occupied; run ${SCRIPT_DIR}/stop.sh and retry"
   fi
@@ -212,7 +212,7 @@ note "Loading sample serving data"
     127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
 )
 
-note "Building and starting rec-server and rank-engine containers"
+note "Building and starting rec-server, rank-engine, rec-algorithm runner, and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
 
 run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -229,6 +229,8 @@ Cluster recommendation chain is ready.
 Web Demo:    http://127.0.0.1:12345
 API health:  http://127.0.0.1:13579/health
 Rank health: http://127.0.0.1:8123/health
+Console:     http://127.0.0.1:8095 (or http://<host>:8095)
+Console API: http://127.0.0.1:8095/docs
 Airflow UI:  http://127.0.0.1:8091
 Spark UI:    http://127.0.0.1:8083
 Flink UI:    http://127.0.0.1:8087

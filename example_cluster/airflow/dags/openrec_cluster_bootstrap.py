@@ -38,6 +38,18 @@ def _redis_command(*parts):
     return response
 
 
+def _recommendation_request(request_id):
+    return _request(
+        "http://%s:13579/api/recommend" % REC_SERVER,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+        body={"requestId": request_id, "body": {
+            "scene": "scene_0", "size": 12, "userId": "user_0",
+            "deviceId": "airflow-cluster-smoke", "type": "click", "debug": False,
+        }},
+    )
+
+
 @dag(
     dag_id="openrec_cluster_bootstrap",
     schedule=None,
@@ -87,17 +99,41 @@ def openrec_cluster_bootstrap():
     def rec_server_ready():
         _request("http://%s:13579/health" % REC_SERVER)
 
+    @task(retries=10, retry_delay=timedelta(seconds=10))
+    def rec_algorithm_runner_ready():
+        _request("http://rec-algorithm-runner:8090/health")
+
+    @task(retries=10, retry_delay=timedelta(seconds=10))
+    def rec_console_ready():
+        _request("http://rec-console:8095/health")
+
+    @task
+    def recommendation_warmup():
+        # Warm rec-server's Elasticsearch TLS connection and client pools outside the latency
+        # assertion. Empty cold-start responses are acceptable here; the next task validates the
+        # recommendation path with the normal online node deadlines unchanged.
+        exposure_key = "event:{user_0}:scene_0:expose"
+        for attempt in range(5):
+            _redis_command("DEL", exposure_key)
+            try:
+                response = _recommendation_request("airflow-cluster-warmup-%d" % attempt)
+            finally:
+                _redis_command("DEL", exposure_key)
+            if (response.get("data") or response).get("results"):
+                return
+            time.sleep(1)
+
     @task
     def recommendation_smoke():
-        response = _request(
-            "http://%s:13579/api/recommend" % REC_SERVER,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-            body={"requestId": "airflow-cluster-smoke", "body": {
-                "scene": "scene_0", "size": 12, "userId": "user_0",
-                "deviceId": "airflow-cluster-smoke", "type": "click", "debug": False,
-            }},
-        )
+        # Redis persists across cluster restarts. Previous smoke requests write exposure events for
+        # user_0, which can eventually filter every sample candidate and make a healthy chain look
+        # empty. Clear only this smoke user's exposure state before and after the request.
+        exposure_key = "event:{user_0}:scene_0:expose"
+        _redis_command("DEL", exposure_key)
+        try:
+            response = _recommendation_request("airflow-cluster-smoke")
+        finally:
+            _redis_command("DEL", exposure_key)
         if response.get("code") != 200 or response.get("status") is not True:
             raise RuntimeError("recommendation failed: %s" % response)
         # JsonRes wraps the business payload in `data`; retain top-level compatibility for older
@@ -143,14 +179,16 @@ def openrec_cluster_bootstrap():
 
     @task_group(group_id="online_services")
     def online_services():
-        checks = [rank_engine_ready(), rec_server_ready()]
+        checks = [rank_engine_ready(), rec_server_ready(), rec_algorithm_runner_ready(),
+                  rec_console_ready()]
         assert checks
 
     platform = platform_preflight()
     services = online_services()
+    warmup = recommendation_warmup()
     recommend = recommendation_smoke()
     ingest = ingestion_smoke()
-    platform >> services >> recommend >> ingest
+    platform >> services >> warmup >> recommend >> ingest
 
 
 openrec_cluster_bootstrap()

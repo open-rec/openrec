@@ -1,8 +1,9 @@
 # example cluster
 
 This example is the composition root for the complete distributed OpenRec recommendation chain.
-It combines infrastructure from `bigdata-platform`, service-owned containers from `rec-server` and
-`rank-engine`, the Spark `data-processor`, an OpenRec Airflow DAG, sample data, and the Web Demo.
+It combines infrastructure from `bigdata-platform`, service-owned containers from `rec-server`,
+`rank-engine`, `rec-algorithm`, and `rec-console`, the Spark `data-processor`, OpenRec Airflow DAGs,
+sample data, and the Web Demo.
 
 ![cluster](doc/openrec_cluster.jpg "cluster architecture")
 
@@ -13,7 +14,9 @@ Each layer has one responsibility:
 | Layer | Owner | Responsibility |
 |---|---|---|
 | Infrastructure | `bigdata-platform` | Kafka, HDFS, Hive, Spark, Flink, Redis, Elasticsearch, Airflow |
-| Online services | `rec-server`, `rank-engine` | Docker images and cluster Compose definitions |
+| Online services | `rec-server`, `rank-engine` | Recommendation and ranking service containers |
+| Recall control | `rec-console` | Recall index preparation, activation, retention, and rollback |
+| Offline jobs | `rec-algorithm` | Spark recall computation and staging-index writes |
 | Streaming pipeline | `data-processor` | Kafka to Redis/HDFS processing job |
 | Business workflow | `example_cluster/airflow` | Dependency and end-to-end recommendation verification |
 | Composition | `example_cluster` | Build, initialize, start, verify, and stop the complete example |
@@ -36,14 +39,14 @@ The command performs the complete cold-start path:
 2. Builds the SDK, Spark feature processor, sample loader, and Web Demo in `.runtime/build`.
 3. Installs the OpenRec Hive entity tables and submits the Spark streaming processor.
 4. Loads sample serving data into Redis and Elasticsearch.
-5. Builds and starts the service-owned `rec-server` and `rank-engine` containers.
+5. Builds and starts `rec-server`, `rank-engine`, the recall runner, and `rec-console` containers.
 6. Triggers the `openrec_cluster_bootstrap` Airflow DAG and waits for success.
 7. Starts the Web Demo only after the complete recommendation chain passes.
 
 The Airflow DAG verifies:
 
 - Kafka, HDFS, Hive, Spark workers, Redis, and Elasticsearch are reachable and ready.
-- `rank-engine` and cluster-mode `rec-server` are healthy.
+- `rank-engine`, cluster-mode `rec-server`, the recall runner, and `rec-console` are healthy.
 - A real recommendation returns candidates.
 - A uniquely named user pushed to `rec-server` reaches Redis through Kafka and the Spark
   `data-processor`; unique data prevents a previous run from producing a false-positive result.
@@ -55,6 +58,8 @@ Startup aborts and cleans up if any phase fails. On success, the main endpoints 
 | Web Demo | `http://127.0.0.1:12345` |
 | rec-server | `http://127.0.0.1:13579` |
 | rank-engine | `http://127.0.0.1:8123` |
+| rec-console | `http://<host>:8095` |
+| rec-console API | `http://<host>:8095/docs` |
 | Airflow | `http://127.0.0.1:8091` |
 | Spark | `http://127.0.0.1:8083` |
 | Flink | `http://127.0.0.1:8087` |
@@ -104,7 +109,7 @@ Inspect each ownership layer independently:
 ./bigdata-platform/platform.sh ps
 ./bigdata-platform/platform.sh logs airflow-api-server spark-master kafka-1
 docker compose -f example/example_cluster/docker-compose.yml ps
-docker compose -f example/example_cluster/docker-compose.yml logs rec-server rank-engine
+docker compose -f example/example_cluster/docker-compose.yml logs rec-server rank-engine rec-algorithm-runner rec-console
 docker exec spark-master cat /tmp/openrec-data-processor.log
 ```
 

@@ -60,7 +60,7 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq spark-master \
 fi
 
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" down \
-  || warn "could not stop rec-server and rank-engine"
+  || warn "could not stop cluster business services"
 
 if [[ "${KEEP_PLATFORM}" == false ]]; then
   "${WORKSPACE}/bigdata-platform/platform.sh" down cluster \
