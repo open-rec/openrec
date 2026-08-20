@@ -24,6 +24,9 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
@@ -58,6 +61,18 @@ public class InitStandalone {
             "      }\n" +
             "    }\n" +
             "  }\n" +
+            "}";
+
+    private static final String RECALL_INDEX = "{\n" +
+            "  \"mappings\": {\"properties\": {\n" +
+            "    \"scene\": {\"type\": \"keyword\"},\n" +
+            "    \"item\": {\"type\": \"keyword\"},\n" +
+            "    \"left_item\": {\"type\": \"keyword\"},\n" +
+            "    \"right_item\": {\"type\": \"keyword\"},\n" +
+            "    \"score\": {\"type\": \"double\"},\n" +
+            "    \"publish_time\": {\"type\": \"long\"}\n" +
+            "  }},\n" +
+            "  \"aliases\": {\"%s\": {}}\n" +
             "}";
 
     static {
@@ -299,6 +314,72 @@ public class InitStandalone {
         log.info("init embedding data finished");
     }
 
+    private static void initEsRecallData(ElasticsearchClient esClient, String kind, String csvPath) {
+        String version = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE);
+        String indexName = String.format("openrec-recall-%s-%s-r001", kind, version);
+        String aliasName = String.format("openrec-recall-%s-active", kind);
+        try {
+            BooleanResponse aliasExists = esClient.indices().existsAlias(a -> a.name(aliasName));
+            if (aliasExists.value()) {
+                Set<String> aliasedIndexes = esClient.indices().getAlias(a -> a.name(aliasName))
+                        .result().keySet();
+                for (String aliasedIndex : aliasedIndexes) {
+                    esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(aliasedIndex)));
+                }
+            }
+            BooleanResponse currentIndexExists = esClient.indices()
+                    .exists(ExistsRequest.of(i -> i.index(indexName)));
+            if (currentIndexExists.value()) {
+                esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(indexName)));
+            }
+            boolean created = esClient.indices().create(CreateIndexRequest.of(i -> i.index(indexName)
+                    .withJson(new StringReader(String.format(RECALL_INDEX, aliasName))))).acknowledged();
+            if (!created) {
+                throw new IllegalStateException(indexName + " create failed");
+            }
+
+            long now = System.currentTimeMillis() / 1000;
+            Reader reader = Files.newBufferedReader(Paths.get(csvPath));
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader()
+                    .withIgnoreEmptyLines(true).withTrim().parse(reader);
+            BulkRequest.Builder bulk = new BulkRequest.Builder();
+            int batchCount = 0;
+            for (CSVRecord record : records) {
+                Map<String, Object> document = new HashMap<>();
+                document.put("scene", record.get("scene"));
+                document.put("score", Double.valueOf(record.get("score")));
+                if ("i2i".equals(kind)) {
+                    document.put("left_item", record.get("left_item"));
+                    document.put("right_item", record.get("right_item"));
+                } else {
+                    document.put("item", record.get("item"));
+                    if ("new".equals(kind)) {
+                        document.put("publish_time",
+                                (long)(Double.valueOf(record.get("score")) * now));
+                    }
+                }
+                String id = "i2i".equals(kind)
+                        ? record.get("scene") + ":" + record.get("left_item") + ":" + record.get("right_item")
+                        : record.get("scene") + ":" + record.get("item");
+                bulk.operations(op -> op.index(idx -> idx.index(indexName).id(id).document(document)));
+                batchCount++;
+                if (batchCount == 1000) {
+                    if (esClient.bulk(bulk.build()).errors()) {
+                        throw new IllegalStateException(indexName + " bulk load failed");
+                    }
+                    bulk = new BulkRequest.Builder();
+                    batchCount = 0;
+                }
+            }
+            if (batchCount > 0 && esClient.bulk(bulk.build()).errors()) {
+                throw new IllegalStateException(indexName + " bulk load failed");
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        log.info("init {} recall data finished: {} -> {}", kind, indexName, aliasName);
+    }
+
     public static void initRedisData(String host, int port) {
         RedisTemplate redisTemplate = RedisUtil.getRedis(host, port);
         if (redisTemplate == null) {
@@ -321,6 +402,9 @@ public class InitStandalone {
             log.error("es init failed");
             return;
         }
+        initEsRecallData(esClient, "hot", testRecallHotData);
+        initEsRecallData(esClient, "new", testRecallNewData);
+        initEsRecallData(esClient, "i2i", testRecallI2iData);
         initEsEmbeddingData(esClient);
         log.info("init es data finished");
     }

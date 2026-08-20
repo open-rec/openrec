@@ -118,11 +118,17 @@ docker exec redis redis-cli ZSCORE 'event:{user_0}:scene_0:click' '"item_8571"' 
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
+for recall_kind in hot new i2i; do
+  docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
+    "https://localhost:9200/_alias/openrec-recall-${recall_kind}-active" >/dev/null \
+    || die "${recall_kind} recall alias was not loaded into Elasticsearch"
+done
 
 port_in_use 13579 && die "rec-server port 13579 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
 note "Building and starting the standalone rec-server container"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
+note "rec-server is ready: http://127.0.0.1:13579"
 
 note "Verifying the complete standalone recommendation chain"
 recommend_response=""
@@ -147,10 +153,15 @@ done
 docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
 [[ "${recommend_ok}" == true ]] \
   || die "recommendation smoke test did not return i2i, embedding, hot, and new: ${recommend_response}"
-docker logs rec-server 2>&1 | grep -Fq 'rank or rank service not open' \
-  || die "standalone recommendation unexpectedly did not bypass rank service"
-docker logs rec-server 2>&1 | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin' \
-  && die "standalone log contains an unexpected Rank or Kafka service call"
+# A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
+# logging level and asynchronous flushing can hide that line even though ranking was skipped.
+if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
+  die "standalone recommendation unexpectedly used rank scores: ${recommend_response}"
+fi
+if docker logs rec-server 2>&1 \
+    | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
+  die "standalone log contains an unexpected Rank or Kafka service call"
+fi
 note "Recommendation smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
 
 web_port=12345
@@ -161,11 +172,13 @@ start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
   "--server.port=${web_port}"
 wait_for_url "Web Demo" "http://127.0.0.1:${web_port}/"
 echo "${web_port}" >"${STATE_DIR}/web.port"
+note "Web Demo is ready: http://127.0.0.1:${web_port}"
 
 cat <<EOF
 
 Standalone recommendation chain is ready.
 Web Demo:  http://127.0.0.1:${web_port}
+Rec Server: http://127.0.0.1:13579
 API health: http://127.0.0.1:13579/health
 Stop apps:  ${SCRIPT_DIR}/stop.sh
 EOF
