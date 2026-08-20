@@ -5,7 +5,28 @@ sibling `bigdata-platform` repository; the containerized `rec-server` runs with 
 profile and writes pushed users, items, and events directly to Redis. Kafka, Spark, and
 `rank-engine` are not required.
 
-![standalone](doc/openrec_standalone.jpg "standalone architecture")
+```mermaid
+flowchart LR
+    User[User or application] --> Web[Web Demo or SDK]
+    Web --> API[rec-server<br/>standalone profile]
+
+    subgraph Storage[bigdata-platform standalone]
+        Redis[(Redis<br/>entities · events · exposure filters)]
+        ES[(Elasticsearch<br/>recall and vector indexes)]
+    end
+
+    API <-->|entities · behavior · filters| Redis
+    API -->|recall · vector queries| ES
+    API -->|recommendations| Web
+
+    Source[Entity and event data] --> Algorithm[rec-algorithm<br/>local mode]
+    Source -->|online entities and behavior| Redis
+    Algorithm --> Dataset[Recall datasets]
+    Dataset --> ES
+```
+
+The diagram is deployment-level. The recall, filtering, combination, and operation nodes inside
+`rec-server` are documented in the rec-server serving DAG and are intentionally not repeated here.
 
 ## Prerequisites and layout
 
@@ -15,6 +36,7 @@ the workspace layout used by this project:
 ```text
 openrec/
 ├── bigdata-platform/
+├── rec-algorithm/       # optional: regenerate the bundled recall datasets
 ├── rec-server/
 ├── sdk/
 └── example/
@@ -42,11 +64,11 @@ Run the complete chain from infrastructure through the visual demo:
 ```
 
 The script requires JDK 8, starts and checks the standalone infrastructure, builds the Java client
-components, loads sample data, builds and starts the rec-server container, and sends a real
-recommendation request before starting the Web Demo. The smoke request must contain i2i, embedding,
-hot, and new results and must bypass Rank and
-Kafka. Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear
-error if either application port is already occupied.
+components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
+the rec-server container, and sends a real recommendation request before starting the Web Demo.
+The smoke request must contain i2i, embedding, hot, and new results and must bypass Rank and Kafka.
+Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
+either application port is already occupied.
 
 Java components are built from current sources in an isolated `.runtime/build` tree. This avoids
 permission or stale-artifact problems when repository `target/` directories were created in a
@@ -108,7 +130,10 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
 cd ..
 ```
 
-This imports users, items, events, i2i/hot/new tables, and embedding vectors. Pass an optional final
+This imports users, items, and events into Redis. It loads hot/new/i2i into versioned Elasticsearch
+indexes behind `openrec-recall-{algorithm}-active`, and embedding vectors into the per-scene vector
+index. Development-only Redis copies of hot/new/i2i are also loaded for RecallStore parity checks,
+but the standalone rec-server uses `ElasticsearchRecallStore` by default. Pass an optional final
 argument to load another directory, for example `data/douban`.
 
 Verify the imported data through the containers:
@@ -117,6 +142,8 @@ Verify the imported data through the containers:
 docker exec redis redis-cli DBSIZE
 docker exec redis redis-cli ZCARD 'event:{user_247}:scene_0:click'
 curl -k -u elastic:openrec-es-password 'https://127.0.0.1:9200/_cat/indices?v'
+curl -k -u elastic:openrec-es-password \
+  'https://127.0.0.1:9200/_alias/openrec-recall-*-active'
 ```
 
 ## 4. Start rec-server
@@ -179,8 +206,8 @@ cd bigdata-platform
 ./platform.sh down
 ```
 
-- A cold embedding query may exceed its 100 ms DAG timeout while Elasticsearch warms up. Retry the
-  request or raise the embedding timeout in `graph.json`.
+- A cold Elasticsearch connection can make the first recommendation incomplete. Warm the service
+  with a request and retry; keep the serving DAG latency limits unchanged.
 - Repeated requests can exhaust the visible sample candidates because `collector` records exposure
   and `filter` excludes exposed items for 24 hours.
 - If the loader cannot connect, confirm that Redis uses host port `6380`, not its container port
