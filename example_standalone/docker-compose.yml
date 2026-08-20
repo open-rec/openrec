@@ -1,0 +1,4 @@
+name: openrec-standalone-apps
+
+include:
+  - path: ../../rec-server/docker-compose.standalone.yml

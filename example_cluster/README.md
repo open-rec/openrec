@@ -1,178 +1,113 @@
 # example cluster
 
-The distributed deployment: data arrives through Kafka, is processed by a streaming/batch pipeline, and
-lands in Redis and Elasticsearch for `rec-server` to serve.
-
-> `data-processor` now provides equivalent Flink and Spark Structured Streaming implementations.
-> Choose one engine in production; both write online features to Redis and durable training data to HDFS.
+This example is the composition root for the complete distributed OpenRec recommendation chain.
+It combines infrastructure from `bigdata-platform`, service-owned containers from `rec-server` and
+`rank-engine`, the Spark `data-processor`, an OpenRec Airflow DAG, sample data, and the Web Demo.
 
 ![cluster](doc/openrec_cluster.jpg "cluster architecture")
 
+## ownership
+
+Each layer has one responsibility:
+
+| Layer | Owner | Responsibility |
+|---|---|---|
+| Infrastructure | `bigdata-platform` | Kafka, HDFS, Hive, Spark, Flink, Redis, Elasticsearch, Airflow |
+| Online services | `rec-server`, `rank-engine` | Docker images and cluster Compose definitions |
+| Streaming pipeline | `data-processor` | Kafka to Redis/HDFS processing job |
+| Business workflow | `example_cluster/airflow` | Dependency and end-to-end recommendation verification |
+| Composition | `example_cluster` | Build, initialize, start, verify, and stop the complete example |
+
+The example Compose file uses `include`; it does not duplicate service build or runtime settings.
+Airflow communicates through normal service protocols on `openrec-bigdata`. It has no Docker socket
+and does not manage containers.
+
 ## quick start
 
-From this directory, one command builds and starts the complete local cluster demo:
+From the workspace root:
 
 ```shell
-./start.sh
+./example/example_cluster/start.sh
 ```
 
-It starts the complete `bigdata-platform`, installs the daily-partition Hive tables, submits the
-Spark `data-processor`, starts `rank-engine`, loads serving samples, and starts cluster-mode
-`rec-server` plus the Web Demo. It also verifies a real recommendation and the
-`rec-server -> Kafka -> Spark -> Redis` ingestion path before returning.
+The command performs the complete cold-start path:
 
-Stop every OpenRec demo application, streaming job, rank container, and cluster platform service:
+1. Builds and starts the `bigdata-platform` cluster preset, then runs its infrastructure smoke tests.
+2. Builds the SDK, Spark feature processor, sample loader, and Web Demo in `.runtime/build`.
+3. Installs the OpenRec Hive entity tables and submits the Spark streaming processor.
+4. Loads sample serving data into Redis and Elasticsearch.
+5. Builds and starts the service-owned `rec-server` and `rank-engine` containers.
+6. Triggers the `openrec_cluster_bootstrap` Airflow DAG and waits for success.
+7. Starts the Web Demo only after the complete recommendation chain passes.
 
-```shell
-./stop.sh
-```
+The Airflow DAG verifies:
 
-Stop applications while retaining the platform containers and data for a faster restart:
+- Kafka, HDFS, Hive, Spark workers, Redis, and Elasticsearch are reachable and ready.
+- `rank-engine` and cluster-mode `rec-server` are healthy.
+- A real recommendation returns candidates.
+- A uniquely named user pushed to `rec-server` reaches Redis through Kafka and the Spark
+  `data-processor`; unique data prevents a previous run from producing a false-positive result.
 
-```shell
-./stop.sh --keep-platform
-```
+Startup aborts and cleans up if any phase fails. On success, the main endpoints are:
 
-Runtime builds, PID files, and logs are isolated under `.runtime/`. Startup failures trigger the
-same safe cleanup automatically. Docker volumes are retained even when the platform containers are
-stopped; only an explicit `bigdata-platform/platform.sh down -v` deletes stored data.
-
-## how it differs from standalone
-
-| | standalone | cluster |
-|---|---|---|
-| ingest | push API writes Redis directly (`pushRedisService`) | push API publishes to Kafka (`pushKafkaService`) |
-| processing | offline scripts run by hand | streaming + batch pipeline |
-| offline compute | `rec-algorithm` on one machine | Spark / Hive |
-| profile | `--spring.profiles.active=standalone` | `--spring.profiles.active=cluster` |
-
-The serving path is identical — same DAG, same Redis/Elasticsearch key layout. Only how data gets in
-changes.
-
-## dependencies
-
-| Component | Where | Status |
-|---|---|---|
-| [rec-server](https://github.com/open-rec/rec-server) | the online service | available |
-| [rec-algorithm](https://github.com/open-rec/rec-algorithm) | local and distributed Spark recall/rank computation | available |
-| [recall-engine](https://github.com/open-rec/recall-engine) | Redis + Elasticsearch install and index design | available |
-| [bigdata-platform](https://github.com/open-rec/bigdata-platform) | ZooKeeper, Kafka, Spark via Docker Compose | available |
-| `data-processor` | Kafka → Redis/HDFS feature pipeline | available (Flink and Spark) |
-| Hadoop, Hive, Spark | storage and compute infrastructure | available in `bigdata-platform` |
-| Flink runtime | alternative streaming runtime | available in `bigdata-platform` |
-
-## 1. storage
-
-Redis and Elasticsearch, same as standalone. The install scripts cover macOS and Linux:
-
-```shell
-git clone https://github.com/open-rec/recall-engine.git
-cd recall-engine
-bash redis/local/install.sh
-bash es/local/install.sh
-```
-
-Elasticsearch 8 starts with TLS and auth enabled and, when started with `-d`, does **not** generate an
-`elastic` password — set one with `bin/elasticsearch-reset-password -u elastic`. Keep it; `rec-server`
-needs it.
-
-For a real cluster, replace these single-node installs with managed or multi-node deployments; the key
-layout in [recall-engine](https://github.com/open-rec/recall-engine) is cluster-safe (ids are wrapped
-in `{}` hash tags so related keys share a slot).
-
-## 2. kafka
-
-A three-broker cluster with ZooKeeper:
-
-```shell
-git clone https://github.com/open-rec/bigdata-platform.git
-cd bigdata-platform
-bash start_kafka_cluster.sh          # brokers on 19092 / 29092 / 39092
-```
-
-The brokers advertise their **container** hostnames, so a client on the host needs
-`127.0.0.1 kafka-1 kafka-2 kafka-3` in `/etc/hosts` — see the
-[bigdata-platform README](https://github.com/open-rec/bigdata-platform#connecting-to-kafka-from-the-host)
-for the alternatives.
-
-Or run a single broker from the Apache distribution:
-
-```shell
-curl -O https://archive.apache.org/dist/kafka/2.5.0/kafka_2.12-2.5.0.tgz
-tar -xzf kafka_2.12-2.5.0.tgz
-cd kafka_2.12-2.5.0
-bash bin/zookeeper-server-start.sh config/zookeeper.properties &
-bash bin/kafka-server-start.sh config/server.properties &
-```
-
-`rec-server` publishes to three topics, configurable via `spring.kafka.topic.*`:
-
-| Topic | Payload |
+| Service | URL |
 |---|---|
-| `item` | item rows |
-| `user` | user rows |
-| `event` | behaviour events |
+| Web Demo | `http://127.0.0.1:12345` |
+| rec-server | `http://127.0.0.1:13579` |
+| rank-engine | `http://127.0.0.1:8123` |
+| Airflow | `http://127.0.0.1:8091` |
+| Spark | `http://127.0.0.1:8083` |
+| Flink | `http://127.0.0.1:8087` |
 
-## 3. real-time feature processor
+## stop and restart
 
-```shell
-bash start_spark_cluster.sh          # master 8080, workers 8081/8082, JupyterLab 8888
-cd ../data-processor
-mvn -pl spark -am -DskipTests package
-spark-submit --class com.openrec.dp.spark.SparkFeatureJob \
-  --master spark://spark-master:7077 spark/target/rec-spark-1.0-SNAPSHOT.jar
-```
-
-Alternatively start `bigdata-platform/start_flink_cluster.sh`, build `-pl flink`, and submit
-`com.openrec.dp.flink.DpJob` to its Flink 1.14 cluster.
-Both jobs use the shared `feature-core` formulas, update Redis snapshots, and append raw records plus
-feature snapshots to HDFS. The persisted data can be joined by entity and `asOfTime` for offline
-`rec-algorithm` training.
-
-## 4. rec-server in cluster mode
+Stop everything owned by this cluster example while retaining Docker volumes:
 
 ```shell
-git clone https://github.com/open-rec/rec-server.git
-cd rec-server
-mvn clean package -DskipTests
+./example/example_cluster/stop.sh
 ```
 
-Set the storage and Kafka endpoints in `server/src/main/resources/application-cluster.properties`:
-
-```properties
-server.pushService=pushKafkaService
-redis.hostName=<redis-host>
-es.host=<es-host>
-es.password=<your-es-password>
-spring.kafka.bootstrap-servers=kafka-1:19092,kafka-2:29092,kafka-3:39092
-```
+Stop the business applications and streaming job while keeping the infrastructure running for a
+faster restart:
 
 ```shell
-cd server
-java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=cluster
+./example/example_cluster/stop.sh --keep-platform
 ```
 
-The `prod` profile only changes where **pushed data** goes: `POST /api/push/*` now produces to Kafka
-instead of writing Redis. Recommendation serving still reads Redis and Elasticsearch directly.
-
-## 5. feature data flow
-
-With `pushKafkaService` active, `data-processor` consumes the `item`, `user`, and `event` topics.
-Inspect the source stream when diagnosing ingestion:
+Only an explicit platform volume deletion removes persisted data:
 
 ```shell
-docker exec -it <kafka-container> \
-  kafka-console-consumer --bootstrap-server kafka-1:19092 --topic event --from-beginning
+./bigdata-platform/platform.sh down -v
 ```
 
-Raw records are stored under `/openrec/raw`; online user/item behavioral snapshots are stored under
-`/openrec/features` and Redis keys `feature:user:{id}` / `feature:item:{id}`.
+The cluster stop command does not touch `example_standalone` processes or containers.
 
-## verify
+## standalone compared with cluster
+
+| Concern | standalone | cluster |
+|---|---|---|
+| Infrastructure preset | Redis and Elasticsearch | Complete distributed platform |
+| Push path | rec-server writes Redis directly | rec-server publishes to Kafka |
+| Processing | Not required | Spark data-processor writes Redis and HDFS/Hive |
+| Ranking service | Disabled | rank-engine container |
+| Airflow workflow | Not required | End-to-end cluster DAG |
+| rec-server profile | `standalone` | `cluster` |
+
+Both examples use the same rec-server image, serving DAG, Redis/Elasticsearch schema, sample loader,
+and Web Demo. Runtime configuration selects the deployment behavior.
+
+## troubleshooting
+
+Inspect each ownership layer independently:
 
 ```shell
-curl http://<server>:13579/health
+./bigdata-platform/platform.sh ps
+./bigdata-platform/platform.sh logs airflow-api-server spark-master kafka-1
+docker compose -f example/example_cluster/docker-compose.yml ps
+docker compose -f example/example_cluster/docker-compose.yml logs rec-server rank-engine
+docker exec spark-master cat /tmp/openrec-data-processor.log
 ```
 
-Then issue a recommend request as in
-[example_standalone](../example_standalone#7-verify).
+Application build output, Web Demo logs, and PID state are isolated under
+`example/example_cluster/.runtime/`. Airflow DAG source remains under
+`example/example_cluster/airflow/dags/` and is mounted read-only by the platform.

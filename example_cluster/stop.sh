@@ -4,7 +4,6 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CLUSTER_STATE_DIR="${SCRIPT_DIR}/.runtime"
-STANDALONE_STATE_DIR="${SCRIPT_DIR}/../example_standalone/.runtime"
 SPARK_PID_FILE="/tmp/openrec-data-processor.pid"
 KEEP_PLATFORM=false
 FAILED=0
@@ -41,12 +40,11 @@ stop_pid_file() {
   rm -f "${pid_file}" || warn "could not remove ${pid_file}"
 }
 
-# Both demos use the same host ports. Stop only processes recorded by their PID files and verify
-# their jar marker before signalling, so a reused PID or unrelated service is never killed.
+# Stop only processes owned by this example and verify the jar marker before signalling, so a
+# reused PID or unrelated service is never killed.
 stop_pid_file "cluster Web Demo" "${CLUSTER_STATE_DIR}/web.pid" "rec-example-web-1.0-SNAPSHOT.jar"
-stop_pid_file "cluster rec-server" "${CLUSTER_STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
-stop_pid_file "standalone Web Demo" "${STANDALONE_STATE_DIR}/web.pid" "rec-example-web-1.0-SNAPSHOT.jar"
-stop_pid_file "standalone rec-server" "${STANDALONE_STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
+# Compatibility cleanup for clusters started before rec-server moved to Compose.
+stop_pid_file "legacy cluster rec-server" "${CLUSTER_STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
 
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq spark-master \
     && docker exec spark-master test -f "${SPARK_PID_FILE}" 2>/dev/null; then
@@ -61,10 +59,8 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq spark-master \
     || warn "could not remove Spark PID file"
 fi
 
-if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -Fxq rank-engine; then
-  docker compose -f "${WORKSPACE}/rank-engine/docker-compose.cluster.yml" down \
-    || warn "could not stop rank-engine"
-fi
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" down \
+  || warn "could not stop rec-server and rank-engine"
 
 if [[ "${KEEP_PLATFORM}" == false ]]; then
   "${WORKSPACE}/bigdata-platform/platform.sh" down cluster \

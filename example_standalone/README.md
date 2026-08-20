@@ -1,8 +1,9 @@
 # example standalone
 
 Run the minimum OpenRec recommendation chain on one machine. Redis and Elasticsearch come from the
-sibling `bigdata-platform` repository; `rec-server` runs with its `standalone` profile and writes pushed
-users, items, and events directly to Redis. Kafka, Spark, and `rank-engine` are not required.
+sibling `bigdata-platform` repository; the containerized `rec-server` runs with its `standalone`
+profile and writes pushed users, items, and events directly to Redis. Kafka, Spark, and
+`rank-engine` are not required.
 
 ![standalone](doc/openrec_standalone.jpg "standalone architecture")
 
@@ -40,9 +41,10 @@ Run the complete chain from infrastructure through the visual demo:
 ./example/example_standalone/start.sh
 ```
 
-The script requires JDK 8, starts and checks the standalone containers, builds Java components,
-loads sample data, starts rec-server, and sends a real recommendation request before starting the Web
-Demo. The smoke request must contain i2i, embedding, hot, and new results and must bypass Rank and
+The script requires JDK 8, starts and checks the standalone infrastructure, builds the Java client
+components, loads sample data, builds and starts the rec-server container, and sends a real
+recommendation request before starting the Web Demo. The smoke request must contain i2i, embedding,
+hot, and new results and must bypass Rank and
 Kafka. Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear
 error if either application port is already occupied.
 
@@ -50,8 +52,9 @@ Java components are built from current sources in an isolated `.runtime/build` t
 permission or stale-artifact problems when repository `target/` directories were created in a
 container, and does not modify those directories.
 
-Application logs and PID files are kept under `example/example_standalone/.runtime/`. Stop the two
-Java applications while retaining data, or stop storage as well:
+Web Demo logs and its PID file are kept under `example/example_standalone/.runtime/`. The rec-server
+container is owned by the example Compose project. Stop the applications while retaining data, or
+stop storage as well:
 
 ```shell
 ./example/example_standalone/stop.sh
@@ -123,21 +126,13 @@ The graph keeps the `rank` node enabled so Cluster can use the same DAG. In Stan
 combine result to the operation strategy without contacting `rank-engine`.
 
 ```shell
-cd rec-server/server
-java -jar target/rec-server-1.0-SNAPSHOT.jar --spring.profiles.active=standalone
+docker compose -f rec-server/docker-compose.standalone.yml up -d --build --wait
 ```
 
 The default operation rule allocates results as 30% i2i, 30% embedding, 20% hot, and 20% new,
-selecting the highest scores available inside those quotas. For this manual startup, copy the plugin
-before launching the server:
-
-```shell
-mkdir -p plugins
-cp ../contrib/target/rec-contrib-1.0-SNAPSHOT.jar plugins/
-```
-
-The one-command launcher copies the plugin and passes its absolute path automatically. To try the
-random insertion strategy instead, set `operationName` to `RandomInsertOperationRule`; the bundled
+selecting the highest scores available inside those quotas. The image includes the operation plugin.
+To try the random insertion strategy instead, set `operationName` to `RandomInsertOperationRule`;
+the bundled
 configuration reserves 10% hot and 10% new candidates at random positions.
 
 ## 5. Verify recommendations

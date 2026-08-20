@@ -43,6 +43,7 @@ command -v docker >/dev/null 2>&1 || die "Docker is required"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v rsync >/dev/null 2>&1 || die "rsync is required"
+command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
 
 MVN_ARGS=()
 if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
@@ -50,7 +51,7 @@ if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
 fi
 
 mkdir -p "${LOG_DIR}"
-for pid_file in "${STATE_DIR}/rec-server.pid" "${STATE_DIR}/web.pid"; do
+for pid_file in "${STATE_DIR}/web.pid"; do
   if [[ -f "${pid_file}" ]]; then
     pid="$(cat "${pid_file}")"
     if [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null; then
@@ -60,7 +61,7 @@ for pid_file in "${STATE_DIR}/rec-server.pid" "${STATE_DIR}/web.pid"; do
   fi
 done
 
-for required_port in 13579 12345 8123; do
+for required_port in 13579 12345 8123 8091; do
   if (echo >/dev/tcp/127.0.0.1/"${required_port}") >/dev/null 2>&1; then
     die "required port ${required_port} is occupied; run ${SCRIPT_DIR}/stop.sh and retry"
   fi
@@ -77,13 +78,6 @@ wait_for_url() {
 
 port_in_use() { (echo >/dev/tcp/127.0.0.1/"$1") >/dev/null 2>&1; }
 
-assert_openrec_success() {
-  local name="$1" payload="$2"
-  grep -Fq '"code":200' <<<"${payload}" \
-    && grep -Fq '"status":true' <<<"${payload}" \
-    || die "${name} failed: ${payload}"
-}
-
 start_jar() {
   local name="$1" pid_file="$2" log_file="$3"
   shift 3
@@ -93,11 +87,80 @@ start_jar() {
   note "${name} started (pid ${pid}, log ${log_file})"
 }
 
-note "Refreshing locally maintained platform images"
-"${WORKSPACE}/bigdata-platform/platform.sh" build hdfs kafka
+run_airflow_dag() {
+  local dag_id="$1" run_id="$2" output state attempt loaded=false
+  note "Waiting for Airflow DAG ${dag_id}"
+  for attempt in {1..60}; do
+    if docker exec airflow-api-server airflow dags list -o plain 2>/dev/null \
+        | grep -Fq "${dag_id}"; then
+      loaded=true
+      break
+    fi
+    sleep 2
+  done
+  [[ "${loaded}" == true ]] || die "Airflow did not load DAG ${dag_id}"
+
+  docker exec airflow-api-server airflow dags unpause -y "${dag_id}" >/dev/null
+  docker exec airflow-api-server airflow dags trigger -r "${run_id}" "${dag_id}" >/dev/null
+  note "Waiting for Airflow run ${run_id}"
+  for attempt in {1..180}; do
+    # Airflow 3 can emit log records around the selected output format. Scan the mixed stream for
+    # the JSON value instead of assuming stdout is one clean JSON document.
+    output="$(docker exec airflow-api-server airflow dags list-runs "${dag_id}" -o json 2>&1)"
+    state="$(python3 -c '
+import json, sys
+payload = sys.stdin.read()
+run_id = sys.argv[1]
+decoder = json.JSONDecoder()
+state = ""
+for offset, char in enumerate(payload):
+    if char not in "[{":
+        continue
+    try:
+        value, _ = decoder.raw_decode(payload, offset)
+    except json.JSONDecodeError:
+        continue
+    runs = value if isinstance(value, list) else [value]
+    state = next((run.get("state", "") for run in runs
+                  if isinstance(run, dict) and run.get("run_id") == run_id), "")
+    if state:
+        break
+print(state)
+' "${run_id}" <<<"${output}")"
+    case "${state}" in
+      success) return 0 ;;
+      failed)
+        echo "Airflow task states for failed run ${run_id}:" >&2
+        docker exec airflow-api-server \
+          airflow tasks states-for-dag-run "${dag_id}" "${run_id}" -o table >&2 || true
+        echo "Airflow task log excerpts for failed run ${run_id}:" >&2
+        docker logs --tail 1000 airflow-scheduler 2>&1 \
+          | grep -F "run_id=${run_id}" >&2 || true
+        die "Airflow DAG ${dag_id} failed (run ${run_id})"
+        ;;
+    esac
+    sleep 2
+  done
+  die "Airflow DAG ${dag_id} timed out (run ${run_id}, last state ${state:-unknown})"
+}
+
+note "Building the cluster infrastructure images"
+"${WORKSPACE}/bigdata-platform/platform.sh" build cluster
 
 note "Starting the complete cluster platform"
+export AIRFLOW_DAGS_PATH="${SCRIPT_DIR}/airflow/dags"
 "${WORKSPACE}/bigdata-platform/platform.sh" up cluster
+note "Waiting for the Airflow scheduler heartbeat"
+airflow_scheduler_ready=false
+for attempt in {1..60}; do
+  if docker exec airflow-scheduler airflow jobs check \
+      --job-type SchedulerJob --hostname airflow-scheduler >/dev/null 2>&1; then
+    airflow_scheduler_ready=true
+    break
+  fi
+  sleep 2
+done
+[[ "${airflow_scheduler_ready}" == true ]] || die "Airflow scheduler did not become ready"
 "${WORKSPACE}/bigdata-platform/platform.sh" smoke cluster
 
 note "Preparing isolated build workspaces"
@@ -109,15 +172,12 @@ rsync -a --delete --exclude .git --exclude target/ "${WORKSPACE}/data-processor/
 rsync -a --delete --exclude target/ "${WORKSPACE}/example/init/" "${BUILD_DIR}/example/init/"
 rsync -a --delete --exclude target/ "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
 
-note "Building rec-server, SDK, feature processor, loader, and Web Demo"
-"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" clean install -DskipTests
+note "Building SDK, feature processor, loader, and Web Demo"
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/data-processor/pom.xml" -pl spark -am clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
-mkdir -p "${BUILD_DIR}/rec-server/server/plugins"
-cp "${BUILD_DIR}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
-  "${BUILD_DIR}/rec-server/server/plugins/"
 
 note "Installing Hive daily-partition entity tables"
 docker cp "${BUILD_DIR}/data-processor/sql/openrec_entities.sql" hiveserver2:/tmp/openrec_entities.sql
@@ -144,10 +204,6 @@ done
 docker exec spark-master kill -0 "${spark_pid:-0}" 2>/dev/null \
   || die "Spark data-processor failed; inspect docker exec spark-master cat ${SPARK_LOG_FILE}"
 
-note "Starting rank-engine"
-docker compose -f "${WORKSPACE}/rank-engine/docker-compose.cluster.yml" up -d --build
-wait_for_url "rank-engine" http://127.0.0.1:8123/health 180
-
 note "Loading sample serving data"
 (
   cd "${WORKSPACE}/example"
@@ -156,39 +212,10 @@ note "Loading sample serving data"
     127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
 )
 
-port_in_use 13579 && die "rec-server port 13579 is already occupied"
-start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
-  "${JAVA}" \
-  "-Dopenrec.operation.plugin=${BUILD_DIR}/rec-server/server/plugins/rec-contrib-1.0-SNAPSHOT.jar" \
-  -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
-  --spring.profiles.active=cluster \
-  --redis.hostName=127.0.0.1 --redis.port=6380 \
-  --es.host=127.0.0.1 --es.port=9200 --es.user=elastic --es.password=openrec-es-password \
-  --rank.host=127.0.0.1 --rank.port=8123 \
-  --spring.kafka.bootstrap-servers=localhost:19092,localhost:29092,localhost:39092
-wait_for_url "rec-server" http://127.0.0.1:13579/health
+note "Building and starting rec-server and rank-engine containers"
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
 
-note "Verifying cluster recommendation and Kafka push paths"
-response="$(curl --noproxy '*' -fsS -X POST http://127.0.0.1:13579/api/recommend \
-  -H 'Content-Type: application/json' \
-  --data '{"requestId":"cluster-smoke","body":{"scene":"scene_0","size":12,"userId":"user_0","deviceId":"cluster-smoke","type":"click","debug":false}}')"
-assert_openrec_success "recommendation smoke" "${response}"
-grep -Fq '"results":[{' <<<"${response}" \
-  || die "recommendation smoke returned no candidates: ${response}"
-push_response="$(curl --noproxy '*' -fsS -X POST http://127.0.0.1:13579/api/push/user \
-  -H 'Content-Type: application/json' \
-  --data '{"requestId":"cluster-push-smoke","body":{"cmd":"INSERT","data":[{"id":"cluster_smoke_user","deviceId":"cluster-smoke","name":"Cluster Smoke","age":0,"tags":[]}]}}')"
-assert_openrec_success "Kafka push smoke" "${push_response}"
-processed=false
-for attempt in {1..60}; do
-  if docker exec redis redis-cli EXISTS 'user:{cluster_smoke_user}' | tr -d '\r' | grep -Fxq 1; then
-    processed=true
-    break
-  fi
-  sleep 1
-done
-[[ "${processed}" == true ]] \
-  || die "Kafka message did not reach Redis through the Spark data-processor"
+run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%M%SZ)"
 
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
@@ -202,6 +229,7 @@ Cluster recommendation chain is ready.
 Web Demo:    http://127.0.0.1:12345
 API health:  http://127.0.0.1:13579/health
 Rank health: http://127.0.0.1:8123/health
+Airflow UI:  http://127.0.0.1:8091
 Spark UI:    http://127.0.0.1:8083
 Flink UI:    http://127.0.0.1:8087
 Stop apps:   ${SCRIPT_DIR}/stop.sh

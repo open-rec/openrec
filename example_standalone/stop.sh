@@ -21,7 +21,10 @@ stop_app() {
 }
 
 stop_app "Web Demo" "${STATE_DIR}/web.pid" "rec-example-web-1.0-SNAPSHOT.jar"
-stop_app "rec-server" "${STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
+# Compatibility cleanup for examples started before rec-server moved to Compose.
+stop_app "legacy rec-server" "${STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
+
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" down
 
 if [[ "${1:-}" == "--with-storage" ]]; then
   "${SCRIPT_DIR}/../../bigdata-platform/platform.sh" down standalone

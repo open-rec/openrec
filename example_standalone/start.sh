@@ -31,6 +31,7 @@ fi
 "${JAVA}" -version 2>&1 | head -n 1 | grep -Eq 'version "1\.8\.' || die "JDK 8 is required"
 command -v javac >/dev/null 2>&1 || [[ -x "${JAVA_HOME:-}/bin/javac" ]] || die "a JDK is required, not a JRE"
 command -v docker >/dev/null 2>&1 || die "Docker is required"
+docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v rsync >/dev/null 2>&1 || die "rsync is required for the isolated Java build"
 
@@ -41,7 +42,7 @@ fi
 
 mkdir -p "${LOG_DIR}"
 
-for managed_pid_file in "${STATE_DIR}/rec-server.pid" "${STATE_DIR}/web.pid"; do
+for managed_pid_file in "${STATE_DIR}/web.pid"; do
   if [[ -f "${managed_pid_file}" ]]; then
     managed_pid="$(cat "${managed_pid_file}")"
     if [[ "${managed_pid}" =~ ^[0-9]+$ ]] && kill -0 "${managed_pid}" 2>/dev/null; then
@@ -90,14 +91,11 @@ rsync -a --delete --exclude target/ \
 rsync -a --delete --exclude target/ \
   "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
 
-note "Building rec-server, Java SDK, data loader, and Web Demo"
-"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" clean install -DskipTests
+note "Building Java SDK, data loader, and Web Demo"
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
-mkdir -p "${BUILD_DIR}/rec-server/server/plugins"
-cp "${BUILD_DIR}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
-  "${BUILD_DIR}/rec-server/server/plugins/"
 
 note "Loading standalone sample data"
 (
@@ -121,12 +119,9 @@ docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
 
-port_in_use 13579 && die "rec-server port 13579 is already occupied; stop that process before starting standalone"
-start_jar "rec-server" "${STATE_DIR}/rec-server.pid" "${LOG_DIR}/rec-server.log" \
-  "${JAVA}" \
-  "-Dopenrec.operation.plugin=${BUILD_DIR}/rec-server/server/plugins/rec-contrib-1.0-SNAPSHOT.jar" \
-  -jar "${BUILD_DIR}/rec-server/server/target/rec-server-1.0-SNAPSHOT.jar" \
-  --spring.profiles.active=standalone
+port_in_use 13579 && die "rec-server port 13579 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
+note "Building and starting the standalone rec-server container"
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
 
 note "Verifying the complete standalone recommendation chain"
@@ -152,9 +147,9 @@ done
 docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
 [[ "${recommend_ok}" == true ]] \
   || die "recommendation smoke test did not return i2i, embedding, hot, and new: ${recommend_response}"
-grep -Fq 'rank or rank service not open' "${LOG_DIR}/rec-server.log" \
+docker logs rec-server 2>&1 | grep -Fq 'rank or rank service not open' \
   || die "standalone recommendation unexpectedly did not bypass rank service"
-grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin' "${LOG_DIR}/rec-server.log" \
+docker logs rec-server 2>&1 | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin' \
   && die "standalone log contains an unexpected Rank or Kafka service call"
 note "Recommendation smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
 
