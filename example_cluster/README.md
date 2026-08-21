@@ -155,6 +155,32 @@ node and edge topology, edits individual node settings, and publishes a complete
 rec-server performs the final structural and Java-class validation before atomically applying it;
 accepted versions are retained by rec-console for rollback.
 
+### rank model lifecycle acceptance
+
+The manual `openrec_rank_model` DAG reads cumulative Hive partitions through the requested business
+date, removes events for deleted items, prepares samples with a four-core Spark submission, trains
+an LR checkpoint, evaluates its held-out AUC gate, and atomically publishes the retained version to
+rank-engine. `openrec_rank_model_rollback` reactivates a retained version without retraining.
+
+Run the deterministic two-version acceptance after the cluster is healthy:
+
+```shell
+bash example/example_cluster/verify_rank_model.sh 2026-08-21
+```
+
+The script verifies Hive ingestion, two train/evaluate/publish runs, release metadata, the model
+loaded by rank-engine, and rollback to the first version. Model releases are also visible under
+the rec-console **Rank Model** page.
+
+Validate the rec-console business-analysis dashboard with isolated deterministic events:
+
+```shell
+bash example/example_cluster/verify_data_analytics.sh 2026-08-21
+```
+
+This checks the real Push → Kafka → Spark → Hive → rec-console path for PV/UV CTR, PV/UV CVR,
+active-item count, and GMV (`quantity × price`).
+
 Startup aborts and cleans up if any phase fails. On success, the main endpoints are:
 
 | Service | URL |
@@ -199,7 +225,7 @@ The cluster stop command does not touch `example_standalone` processes or contai
 | Push path | rec-server writes Redis directly | rec-server publishes to Kafka |
 | Processing | Not required | Spark data-processor writes Redis and Hive-backed storage |
 | Ranking service | Disabled | rank-engine container |
-| Airflow workflow | Not required | Bootstrap, daily recall, and manual rollback DAGs |
+| Airflow workflow | Not required | Bootstrap, daily recall, model release, and rollback DAGs |
 | Recall publishing | Bundled sample import | Spark staging writes with `rec-console` version control |
 | rec-server profile | `standalone` | `cluster` |
 
