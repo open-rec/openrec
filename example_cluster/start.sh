@@ -220,7 +220,7 @@ run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
   "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
-  --server.port=12345
+  --server.port=12345 --demo.exposure-mode=viewport
 wait_for_url "Web Demo" http://127.0.0.1:12345/
 
 cat <<EOF

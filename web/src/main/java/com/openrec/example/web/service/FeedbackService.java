@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -36,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class FeedbackService {
 
     private static final String EVENT_KEY = "event:{%s}:%s:%s";
-    private static final String TRACE_ID = "openrec-web";
+    private static final String TRACE_ID = "openrec-web-";
 
     /** the behaviours the page can report; the first two are the ones that change recommendations */
     public static final String[] TYPES = {"click", "expose", "buy", "collect", "stay"};
@@ -61,7 +62,7 @@ public class FeedbackService {
         event.setType(type);
         event.setValue(value == null || value.isEmpty() ? "1" : value);
         event.setTime(String.valueOf(System.currentTimeMillis() / 1000));
-        event.setTraceId(TRACE_ID);
+        event.setTraceId(TRACE_ID + UUID.randomUUID().toString());
         event.setDeviceId("openrec-web");
         event.setLogin(true);
 
@@ -108,7 +109,7 @@ public class FeedbackService {
             event.setType(type);
             event.setValue("1");
             event.setTime(now);
-            event.setTraceId(TRACE_ID);
+            event.setTraceId(TRACE_ID + UUID.randomUUID().toString());
             event.setDeviceId("openrec-web");
             event.setLogin(true);
             events.add(event);

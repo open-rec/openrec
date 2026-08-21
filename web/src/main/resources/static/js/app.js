@@ -29,6 +29,9 @@
     previousIds: {},
     /** itemId -> timestamp when the card entered the viewport, for dwell time */
     visibleSince: {},
+    /** cluster mode reports each card at most once per rendered result set */
+    exposedInRender: {},
+    exposureMode: 'server',
     observer: null
   };
 
@@ -125,6 +128,22 @@
     });
   }
 
+  function reportExposureBatch(itemIds) {
+    if (!itemIds.length || state.exposureMode !== 'viewport') return;
+    postJson('/api/feedback/batch', {
+      userId: state.userId,
+      scene: state.scene,
+      itemIds: itemIds,
+      type: 'expose'
+    }).then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'expose');
+      renderCounters(data.counters);
+    }).catch(function (err) {
+      itemIds.forEach(function (itemId) { delete state.exposedInRender[itemId]; });
+      toast('曝光上报失败: ' + err.message, true);
+    });
+  }
+
   function reportStay(itemId) {
     var since = state.visibleSince[itemId];
     if (!since) return;
@@ -137,12 +156,7 @@
 
   // ---------------------------------------------------------------- viewport tracking
 
-  /**
-   * Only used for dwell time. Exposure is not tracked here: rendering a card counts as exposing it,
-   * and that is recorded server-side — by the DAG's collector node for the tabs it serves, and by
-   * the web layer for the two that read Redis directly. Reporting it from the viewport as well would
-   * double-write and change the meaning to "actually seen".
-   */
+  /** Tracks dwell time in both modes and real browser-visible exposure in cluster mode. */
   function setupObserver() {
     if (state.observer) state.observer.disconnect();
 
@@ -151,16 +165,22 @@
     }
 
     state.observer = new IntersectionObserver(function (entries) {
+      var newlyExposed = [];
       entries.forEach(function (entry) {
         var itemId = entry.target.dataset.itemId;
         if (!itemId) return;
 
         if (entry.isIntersecting) {
           if (!state.visibleSince[itemId]) state.visibleSince[itemId] = Date.now();
+          if (state.exposureMode === 'viewport' && !state.exposedInRender[itemId]) {
+            state.exposedInRender[itemId] = true;
+            newlyExposed.push(itemId);
+          }
         } else {
           reportStay(itemId);
         }
       });
+      reportExposureBatch(newlyExposed);
     }, { threshold: 0.5 });
 
     return state.observer;
@@ -320,6 +340,7 @@
   function load() {
     flushStay();
     state.visibleSince = {};
+    state.exposedInRender = {};
 
     var url = '/api/tab/' + state.tab +
               '?scene=' + encodeURIComponent(state.scene) +
@@ -398,6 +419,7 @@
       state.userId = cfg.userId || state.userId;
       state.scene = cfg.scene || state.scene;
       state.pageSize = cfg.pageSize || state.pageSize;
+      state.exposureMode = cfg.exposureMode || state.exposureMode;
       if (cfg.affectingBehaviours && cfg.affectingBehaviours.length) {
         AFFECTING = cfg.affectingBehaviours;
       }

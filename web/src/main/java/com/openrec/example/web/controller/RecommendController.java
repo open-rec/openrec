@@ -58,6 +58,9 @@ public class RecommendController {
     @Value("${demo.page-size}")
     private int defaultSize;
 
+    @Value("${demo.exposure-mode:server}")
+    private String exposureMode;
+
     /**
      * @param name   guess | related | hot | new
      * @param itemId trigger item, used by the related tab only
@@ -122,10 +125,11 @@ public class RecommendController {
 
         List<ItemView> items = itemService.resolve(ids);
 
-        // Showing a card counts as exposing it. The DAG-backed tabs already get this from the
-        // collector node, so only the direct table reads need it here — without it those two tabs
-        // would keep serving what the user has already seen.
-        if (DIRECT_TABLE_TABS.contains(name) && !items.isEmpty()) {
+        // In standalone, rendering a card counts as exposing it. DAG-backed tabs get this from
+        // Collector and direct-table tabs need the same fallback here. Cluster uses browser-visible
+        // exposure instead, so neither server-side path reports it in viewport mode.
+        if ("server".equalsIgnoreCase(exposureMode)
+            && DIRECT_TABLE_TABS.contains(name) && !items.isEmpty()) {
             List<String> shown = items.stream().map(ItemView::getId).collect(Collectors.toList());
             body.put("exposeReported", feedbackService.reportBatch(u, s, shown, "expose"));
         }

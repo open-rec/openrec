@@ -56,9 +56,9 @@
         <b>热门推荐</b> / <b>新品推荐</b> 直接读取 Redis 的 <code>hot:{scene}</code> / <code>new:{scene}</code> 召回表。
     </p>
     <p>
-        <b>展示即曝光</b>：tab 里渲染出来的物品会被记为 <code>expose</code>，除非点「重置曝光」，否则不再出现。
-        猜你喜欢 / 相关推荐由 DAG 的 <code>collector</code> 节点写入并由 <code>filter</code> 节点过滤；
-        热门 / 新品绕过了 DAG，由本服务在返回结果时补上同样的记录与过滤。
+        <b>展示即曝光</b>：standalone 由 DAG <code>collector</code>（热门 / 新品由 Web 后端）记录伪曝光；
+        cluster 关闭伪曝光，由浏览器在卡片实际进入可视区域后批量通过 Push API 上报真实 <code>expose</code>。
+        两种模式都由 <code>filter</code> 在后续请求中过滤已曝光物品。
     </p>
     <p>
         点击卡片上报 <code>click</code>，卡片移出视口上报 <code>stay</code>（驻留秒数），

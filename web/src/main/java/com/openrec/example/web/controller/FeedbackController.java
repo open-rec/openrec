@@ -1,6 +1,7 @@
 package com.openrec.example.web.controller;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,14 @@ public class FeedbackController {
         private String value;
     }
 
+    @Data
+    public static class BatchFeedbackReq {
+        private String userId;
+        private List<String> itemIds;
+        private String scene;
+        private String type;
+    }
+
     @PostMapping("/feedback")
     public Map<String, Object> feedback(@RequestBody FeedbackReq req) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -62,6 +71,25 @@ public class FeedbackController {
         if (!ok) {
             body.put("error", "rec-server did not accept the event, check its log");
         }
+        return body;
+    }
+
+    @PostMapping("/feedback/batch")
+    public Map<String, Object> feedbackBatch(@RequestBody BatchFeedbackReq req) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (req.getItemIds() == null || req.getItemIds().isEmpty() || isBlank(req.getType())) {
+            body.put("ok", false);
+            body.put("error", "itemIds and type are required");
+            return body;
+        }
+        String userId = orDefault(req.getUserId(), defaultUserId);
+        String scene = orDefault(req.getScene(), defaultScene);
+        boolean ok = feedbackService.reportBatch(userId, scene, req.getItemIds(), req.getType());
+        body.put("ok", ok);
+        body.put("type", req.getType());
+        body.put("count", req.getItemIds().size());
+        body.put("counters", feedbackService.counters(userId, scene));
+        if (!ok) body.put("error", "rec-server did not accept the event batch, check its log");
         return body;
     }
 

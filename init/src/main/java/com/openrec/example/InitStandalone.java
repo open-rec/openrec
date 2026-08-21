@@ -271,11 +271,23 @@ public class InitStandalone {
                 String scene = entry.getKey();
                 String indexName = String.format("%s-item-vector-index", scene);
 
-                ExistsRequest existsRequest = ExistsRequest.of(i -> i.index(indexName));
-                BooleanResponse response = esClient.indices().exists(existsRequest);
-                if (response.value()) {
-                    DeleteIndexRequest deleteRequest = DeleteIndexRequest.of(i -> i.index(indexName));
-                    esClient.indices().delete(deleteRequest);
+                // The daily publisher migrates this legacy serving index to an alias pointing at a
+                // versioned index. Elasticsearch deliberately rejects DELETE /{alias}; resolve and
+                // delete its concrete targets first so repeated standalone/cluster bootstrap runs
+                // remain idempotent regardless of which representation currently exists.
+                BooleanResponse aliasExists = esClient.indices().existsAlias(a -> a.name(indexName));
+                if (aliasExists.value()) {
+                    Set<String> aliasedIndexes = new HashSet<>(esClient.indices()
+                            .getAlias(a -> a.name(indexName)).result().keySet());
+                    for (String aliasedIndex : aliasedIndexes) {
+                        esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(aliasedIndex)));
+                    }
+                } else {
+                    ExistsRequest existsRequest = ExistsRequest.of(i -> i.index(indexName));
+                    BooleanResponse response = esClient.indices().exists(existsRequest);
+                    if (response.value()) {
+                        esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(indexName)));
+                    }
                 }
                 CreateIndexRequest indexRequest = CreateIndexRequest
                         .of(i -> i.index(indexName).withJson(new StringReader(ITEM_VECTOR_INDEX)));

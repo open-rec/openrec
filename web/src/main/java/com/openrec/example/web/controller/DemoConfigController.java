@@ -32,6 +32,9 @@ public class DemoConfigController {
     @Value("${rec.server.endpoint}")
     private String recServerEndpoint;
 
+    @Value("${demo.exposure-mode:server}")
+    private String exposureMode;
+
     @GetMapping("/config")
     public Map<String, Object> config() {
         Map<String, Object> cfg = new LinkedHashMap<>();
@@ -43,6 +46,7 @@ public class DemoConfigController {
         cfg.put("behaviours", Arrays.asList(FeedbackService.TYPES));
         // the only two the DAG consumes today: userTrigger reads click, filter reads expose
         cfg.put("affectingBehaviours", Arrays.asList("click", "expose"));
+        cfg.put("exposureMode", exposureMode);
         return cfg;
     }
 }

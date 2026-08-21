@@ -69,8 +69,8 @@ The backend is not ceremony. Two things require it:
 
 | tab | source | exposure filtering |
 |---|---|---|
-| 猜你喜欢 | `POST /api/recommend` via sdk, no explicit triggers | DAG (`filter` + `collector`) |
-| 相关推荐 | `POST /api/recommend` via sdk, with `itemIds=[selected]` | DAG (`filter` + `collector`) |
+| 猜你喜欢 | `POST /api/recommend` via sdk, no explicit triggers | DAG `filter`; standalone `collector` records exposure |
+| 相关推荐 | `POST /api/recommend` via sdk, with `itemIds=[selected]` | DAG `filter`; standalone `collector` records exposure |
 | 热门推荐 | Redis `hot:{scene}` | applied by this module |
 | 新品推荐 | Redis `new:{scene}` | applied by this module |
 
@@ -137,17 +137,16 @@ Only two of the five feed the DAG:
 | behaviour | trigger | effect on the next recommendation |
 |---|---|---|
 | `click` | clicking a card | **yes** — `UserTriggerNode` reads recent clicks and uses them as recall triggers |
-| `expose` | **rendering** a card, recorded server-side | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
+| `expose` | standalone: returned by server; cluster: actually visible in browser | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
 | `stay` | card leaves the viewport, value = dwell seconds | no — stored only |
 | `buy` | 购买 button | no — stored only |
 | `collect` | 收藏 button | no — stored only |
 
-**Rendering counts as exposure, and exposure hides the item.** Anything a tab shows is recorded as
-`expose` and will not come back until 重置曝光. For 猜你喜欢 and 相关推荐 the DAG does this itself —
-`CollectorNode` writes the records, `FilterNode` excludes them on the next request. 热门 and 新品
-bypass the DAG, so the web layer applies the same two steps around its table reads. The browser does
-not report exposure at all; doing it from the viewport would double-write and quietly redefine it as
-"actually seen".
+**Exposure hides the item.** In standalone, `collector.fake-expose.enabled=true`: `CollectorNode`
+records DAG results as synthetic exposure, while the Web backend provides the same fallback for 热门
+and 新品. In cluster, that property is false and the Web starts with `demo.exposure-mode=viewport`:
+an `IntersectionObserver` batches cards that cross the 50% visibility threshold to the Push API.
+This keeps the standalone convenience while making cluster analytics reflect actual displays.
 
 `stay` carries the dwell time in `value`, but **`value` is not persisted**: the event index is
 `event:{userId}:{scene}:{type}` → sorted set of `(itemId, timestamp)`, so there is nowhere to put it.
@@ -213,6 +212,7 @@ delete events.
 | GET | `/api/config` | page defaults: user, scene list, page size, which behaviours matter |
 | GET | `/api/tab/{guess\|related\|hot\|new}` | items for a tab; `?scene=&userId=&size=&itemId=` |
 | POST | `/api/feedback` | report one behaviour: `{userId, itemId, scene, type, value}` |
+| POST | `/api/feedback/batch` | report visible items together: `{userId, itemIds, scene, type}` |
 | GET | `/api/state` | event counters for a user and scene |
 | POST | `/api/reset` | clear exposures; `{"clearClicks": true}` also clears clicks |
 

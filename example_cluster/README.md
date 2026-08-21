@@ -228,6 +228,7 @@ The cluster stop command does not touch `example_standalone` processes or contai
 | Airflow workflow | Not required | Bootstrap, daily recall, model release, and rollback DAGs |
 | Recall publishing | Bundled sample import | Spark staging writes with `rec-console` version control |
 | rec-server profile | `standalone` | `cluster` |
+| Exposure collection | Synthetic exposure enabled | Synthetic exposure disabled; browser reports cards visible at least 50% through Push API |
 
 Both examples use the same rec-server image, serving DAG, Redis/Elasticsearch schema, sample loader,
 and Web Demo. Runtime configuration selects the deployment behavior.
