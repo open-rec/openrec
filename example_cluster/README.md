@@ -124,6 +124,18 @@ jobs read partitioned Hive data, submit hot/new/i2i Spark computations through
 `rec-algorithm-runner`, and ask `rec-console` to validate and atomically activate the resulting
 Elasticsearch indexes.
 
+The rec-console DAG module provides the operational UI for Airflow DAG status, pause/enable,
+manual triggers, DagRun and TaskInstance state, and task logs. Its structured daily-recall editor
+versions and publishes cron, ordered algorithm dependencies, default revision, retention, and retry
+settings through the shared `openrec-dag-config` volume. Airflow mounts that configuration
+read-only; the Python DAG source remains read-only and arbitrary Python editing is not exposed in
+the browser.
+
+The rec-console Serving Graph module reads the active online graph from rec-server, renders its
+node and edge topology, edits individual node settings, and publishes a complete graph snapshot.
+rec-server performs the final structural and Java-class validation before atomically applying it;
+accepted versions are retained by rec-console for rollback.
+
 Startup aborts and cleans up if any phase fails. On success, the main endpoints are:
 
 | Service | URL |

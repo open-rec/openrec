@@ -5,6 +5,7 @@ import socket
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from airflow.sdk import dag, task
 
@@ -12,6 +13,16 @@ from airflow.sdk import dag, task
 RUNNER = "http://rec-algorithm-runner:8090"
 REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
+DEFAULT_CONFIG = {
+    "schedule": "0 2 * * *", "algorithms": ["hot", "new", "i2i"],
+    "default_revision": "r001", "max_index_versions": 2,
+    "retries": 1, "retry_delay_minutes": 5,
+}
+CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_recall.json")
+try:
+    CONFIG = {**DEFAULT_CONFIG, **json.loads(CONFIG_PATH.read_text())}
+except (OSError, ValueError):
+    CONFIG = DEFAULT_CONFIG
 
 
 def _request(url, method="GET", body=None, headers=None, timeout=30, context=None):
@@ -40,7 +51,7 @@ def _redis_command(*parts):
 
 @dag(
     dag_id="openrec_daily_recall",
-    schedule="0 2 * * *",
+    schedule=CONFIG["schedule"],
     start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     max_active_runs=1,
@@ -48,7 +59,8 @@ def _redis_command(*parts):
     description="Spark daily recall tables -> versioned ES indexes -> atomic online switch",
 )
 def openrec_daily_recall():
-    @task(retries=1, retry_delay=timedelta(minutes=5))
+    @task(retries=CONFIG["retries"],
+          retry_delay=timedelta(minutes=CONFIG["retry_delay_minutes"]))
     def publish(algorithm, business_date, revision):
         response = _request(
             RUNNER + "/jobs/recall",
@@ -59,7 +71,7 @@ def openrec_daily_recall():
                 "date": business_date,
                 "revision": revision,
                 "output_table": "openrec.recall_%s" % algorithm,
-                "max_index_versions": 2,
+                "max_index_versions": CONFIG["max_index_versions"],
             },
             timeout=7500,
         )
@@ -68,9 +80,9 @@ def openrec_daily_recall():
         return {"algorithm": algorithm, "date": business_date, "revision": revision}
 
     @task
-    def verify_aliases_and_online_recall(business_date, revision):
+    def verify_aliases_and_online_recall(business_date, revision, algorithms):
         version = business_date.replace("-", "")
-        for algorithm in ("hot", "new", "i2i"):
+        for algorithm in algorithms:
             expected = "openrec-recall-%s-%s-%s" % (algorithm, version, revision)
             release = _request("%s/api/recall/releases/%s" % (REC_CONSOLE, algorithm))
             active = release.get("active_indexes") or []
@@ -94,17 +106,20 @@ def openrec_daily_recall():
             _redis_command("DEL", exposure_key)
         results = (response.get("data") or {}).get("results") or []
         channels = {result.get("recallFrom") for result in results}
-        missing = {"hot", "new", "i2i"} - channels
+        missing = set(algorithms) - channels
         if missing:
             raise RuntimeError("online recall misses channels %s: %s" % (sorted(missing), response))
 
     business_date = "{{ data_interval_start | ds }}"
-    revision = "{{ dag_run.conf.get('revision', 'r001') if dag_run else 'r001' }}"
-    hot = publish.override(task_id="publish_hot")("hot", business_date, revision)
-    newest = publish.override(task_id="publish_new")("new", business_date, revision)
-    item_to_item = publish.override(task_id="publish_i2i")("i2i", business_date, revision)
-    verified = verify_aliases_and_online_recall(business_date, revision)
-    hot >> newest >> item_to_item >> verified
+    revision = "{{ dag_run.conf.get('revision', '%s') if dag_run else '%s' }}" % (
+        CONFIG["default_revision"], CONFIG["default_revision"])
+    published = [publish.override(task_id="publish_%s" % algorithm)(
+        algorithm, business_date, revision) for algorithm in CONFIG["algorithms"]]
+    verified = verify_aliases_and_online_recall(
+        business_date, revision, CONFIG["algorithms"])
+    for upstream, downstream in zip(published, published[1:]):
+        upstream >> downstream
+    published[-1] >> verified
 
 
 openrec_daily_recall()
