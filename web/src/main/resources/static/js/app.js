@@ -16,7 +16,7 @@
   };
 
   /** behaviours the DAG actually consumes; the rest are stored but inert */
-  var AFFECTING = ['click', 'expose'];
+  var AFFECTING = ['click', 'expose', 'dislike'];
 
   var state = {
     tab: 'guess',
@@ -40,6 +40,7 @@
     scene: document.getElementById('scene'),
     reload: document.getElementById('reload'),
     reset: document.getElementById('reset'),
+    resetDislike: document.getElementById('resetDislike'),
     tabs: document.getElementById('tabs'),
     source: document.getElementById('source'),
     note: document.getElementById('note'),
@@ -220,6 +221,20 @@
     return item.recallScores ? Object.keys(item.recallScores).length : (item.recallFrom ? 1 : 0);
   }
 
+  function itemTags(item) {
+    if (Array.isArray(item.tags)) return item.tags.filter(Boolean);
+    return String(item.tags || '').split(/[,|]/).map(function (tag) {
+      return tag.trim().replace(/^[\[\]"']+|[\[\]"']+$/g, '');
+    }).filter(Boolean);
+  }
+
+  function dislikeValue(item, scope) {
+    if (scope === 'id') return { id: item.id };
+    if (scope === 'category' && item.category) return { category: item.category };
+    if (scope === 'tags' && itemTags(item).length) return { tags: itemTags(item) };
+    return null;
+  }
+
   function card(item, isNew) {
     var node = document.createElement('div');
     node.className = 'card' + (item.resolved ? '' : ' unresolved');
@@ -259,6 +274,11 @@
       '<button data-act="collect">收藏</button>' +
       '<button data-act="buy">购买</button>' +
       '<button data-act="related">相关</button>' +
+      '</div>' +
+      '<div class="card-actions dislike-actions">' +
+      '<button data-act="dislike-id">不喜欢商品</button>' +
+      '<button data-act="dislike-category"' + (!item.category ? ' disabled' : '') + '>屏蔽类目</button>' +
+      '<button data-act="dislike-tags"' + (!itemTags(item).length ? ' disabled' : '') + '>屏蔽标签</button>' +
       '</div>';
 
     // clicking the card body is the click behaviour; buttons handle themselves
@@ -278,6 +298,22 @@
         if (act === 'related') {
           state.relatedItemId = item.id;
           switchTab('related');
+          return;
+        }
+
+        if (act.indexOf('dislike-') === 0) {
+          var scope = act.substring('dislike-'.length);
+          var value = dislikeValue(item, scope);
+          if (!value) return;
+          report(item.id, 'dislike', JSON.stringify(value)).then(function (data) {
+            if (!data || !data.ok) return;
+            button.classList.add('done');
+            node.classList.add('disliked');
+            var scopeName = scope === 'id' ? item.id
+              : scope === 'category' ? item.category : itemTags(item).join(', ');
+            toast('已提交负反馈：' + scopeName + '。cluster 写入异步，稍后重新加载可验证过滤');
+            setTimeout(refreshCounters, 1500);
+          });
           return;
         }
 
@@ -404,6 +440,17 @@
         load();
       })
       .catch(function (err) { toast('重置失败: ' + err.message, true); });
+  });
+
+  el.resetDislike.addEventListener('click', function () {
+    postJson('/api/reset/dislike', { userId: state.userId, scene: state.scene })
+      .then(function (data) {
+        renderCounters(data.counters);
+        toast('已清除当前用户和场景的负反馈规则');
+        state.previousIds = {};
+        load();
+      })
+      .catch(function (err) { toast('重置负反馈失败: ' + err.message, true); });
   });
 
   // dwell time for whatever is still on screen when the page goes away

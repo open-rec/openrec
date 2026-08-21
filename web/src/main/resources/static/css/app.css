@@ -139,6 +139,7 @@ body {
 }
 .card:hover { box-shadow: 0 3px 12px rgba(31, 36, 48, .09); transform: translateY(-1px); }
 .card.clicked { border-color: #1a7f45; }
+.card.disliked { border-color: #d46b70; background: #fff8f8; }
 .card.unresolved { border-style: dashed; opacity: .75; }
 
 .card-badges { position: absolute; top: 9px; right: 9px; display: flex; gap: 4px; }
@@ -214,6 +215,11 @@ body {
 }
 .card-actions button:hover { background: #f0f2f5; color: #1f2430; }
 .card-actions button.done { border-color: #b9dcc8; background: #e6f5ec; color: #1a7f45; }
+.card-actions button:disabled { cursor: not-allowed; opacity: .45; }
+.dislike-actions { margin-top: 6px; }
+.dislike-actions button { border-color: #edc5c7; color: #a3282d; font-size: 11px; }
+.dislike-actions button:hover:not(:disabled) { background: #fff0f0; color: #8e2025; }
+.dislike-actions button.done { border-color: #d46b70; background: #ffe5e6; color: #8e2025; }
 
 /* ---------- misc ---------- */
 

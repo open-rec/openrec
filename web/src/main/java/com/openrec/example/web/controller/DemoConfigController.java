@@ -44,8 +44,8 @@ public class DemoConfigController {
         cfg.put("pageSize", pageSize);
         cfg.put("recServer", recServerEndpoint);
         cfg.put("behaviours", Arrays.asList(FeedbackService.TYPES));
-        // the only two the DAG consumes today: userTrigger reads click, filter reads expose
-        cfg.put("affectingBehaviours", Arrays.asList("click", "expose"));
+        // userTrigger reads click, FilterNode reads expose, BlackNode reads dislike
+        cfg.put("affectingBehaviours", Arrays.asList("click", "expose", "dislike"));
         cfg.put("exposureMode", exposureMode);
         return cfg;
     }

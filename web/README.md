@@ -132,12 +132,13 @@ read.
 
 ## which behaviours change recommendations
 
-Only two of the five feed the DAG:
+Three behaviours feed the DAG:
 
 | behaviour | trigger | effect on the next recommendation |
 |---|---|---|
 | `click` | clicking a card | **yes** — `UserTriggerNode` reads recent clicks and uses them as recall triggers |
 | `expose` | standalone: returned by server; cluster: actually visible in browser | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
+| `dislike` | 不喜欢商品 / 屏蔽类目 / 屏蔽标签 buttons | **yes** — `BlackNode` loads the structured rules and `CombineNode` applies them |
 | `stay` | card leaves the viewport, value = dwell seconds | no — stored only |
 | `buy` | 购买 button | no — stored only |
 | `collect` | 收藏 button | no — stored only |
@@ -148,12 +149,14 @@ and 新品. In cluster, that property is false and the Web starts with `demo.exp
 an `IntersectionObserver` batches cards that cross the 50% visibility threshold to the Push API.
 This keeps the standalone convenience while making cluster analytics reflect actual displays.
 
-`stay` carries the dwell time in `value`, but **`value` is not persisted**: the event index is
+`dislike.value` is structured JSON containing one selected scope: `id`, `category`, or a `tags`
+array. It is materialized as prefixed members in Redis. `stay` carries dwell time in `value`, but
+that value is not persisted: the ordinary event index is
 `event:{userId}:{scene}:{type}` → sorted set of `(itemId, timestamp)`, so there is nowhere to put it.
 The event reaches rec-server and the item lands in the sorted set; only the number is dropped.
 
-`UserTriggerNode` hardcodes `filterType = "click"` and `FilterNode` hardcodes `"expose"`, so the other
-three are written correctly to `event:{userId}:{scene}:{type}` and read by nobody. They are still
+`UserTriggerNode` consumes click, `FilterNode` consumes expose, and `BlackNode` consumes dislike.
+The other three are written correctly to `event:{userId}:{scene}:{type}` and read by nobody. They are still
 worth reporting — an offline model would train on them — but the page marks them inert rather than
 implying otherwise.
 
@@ -215,6 +218,7 @@ delete events.
 | POST | `/api/feedback/batch` | report visible items together: `{userId, itemIds, scene, type}` |
 | GET | `/api/state` | event counters for a user and scene |
 | POST | `/api/reset` | clear exposures; `{"clearClicks": true}` also clears clicks |
+| POST | `/api/reset/dislike` | clear the current user's dislike rules for one scene |
 
 Usable without a browser:
 

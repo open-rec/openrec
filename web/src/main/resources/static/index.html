@@ -20,6 +20,7 @@
             </label>
             <button id="reload" class="btn">重新加载</button>
             <button id="reset" class="btn btn-warn" title="清除曝光记录，让演示可以反复进行">重置曝光</button>
+            <button id="resetDislike" class="btn btn-warn" title="清除当前用户和场景的负反馈规则">重置负反馈</button>
         </div>
     </div>
 
@@ -27,6 +28,7 @@
         <span class="state-title">行为记录</span>
         <span class="counter" data-type="click">click <b>-</b></span>
         <span class="counter" data-type="expose">expose <b>-</b></span>
+        <span class="counter" data-type="dislike">dislike <b>-</b></span>
         <span class="counter" data-type="buy">buy <b>-</b></span>
         <span class="counter" data-type="collect">collect <b>-</b></span>
         <span class="counter" data-type="stay">stay <b>-</b></span>
@@ -62,10 +64,11 @@
     </p>
     <p>
         点击卡片上报 <code>click</code>，卡片移出视口上报 <code>stay</code>（驻留秒数），
-        按钮上报 <code>buy</code> / <code>collect</code>。所有上报均通过 SDK 推送到 rec-server。
+        按钮上报 <code>buy</code> / <code>collect</code>；负反馈可分别屏蔽当前商品 ID、类目或全部标签。
+        所有上报均通过 SDK 推送到 rec-server。
     </p>
     <p class="dim">
-        其中只有 <code>click</code>（成为下次召回的 trigger）和 <code>expose</code>（24 小时内被过滤）会改变推荐结果，
+        <code>click</code>、<code>expose</code> 和 <code>dislike</code> 会改变推荐结果，
         <code>buy</code> / <code>collect</code> / <code>stay</code> 会被正确存储但当前没有节点消费。
         卡片左上角徽标为该物品的召回通道，分数拆为 <code>recall</code> 与 <code>rank</code> 两段便于 debug。
     </p>

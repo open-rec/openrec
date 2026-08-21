@@ -128,6 +128,18 @@ public class FeedbackController {
         return body;
     }
 
+    @PostMapping("/reset/dislike")
+    public Map<String, Object> resetDislike(@RequestBody(required = false) ResetReq req) {
+        ResetReq r = req == null ? new ResetReq() : req;
+        String u = orDefault(r.getUserId(), defaultUserId);
+        String s = orDefault(r.getScene(), defaultScene);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("ok", true);
+        body.put("deleted", feedbackService.resetDislikes(u, s));
+        body.put("counters", feedbackService.counters(u, s));
+        return body;
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.isEmpty();
     }

@@ -39,8 +39,8 @@ public class FeedbackService {
     private static final String EVENT_KEY = "event:{%s}:%s:%s";
     private static final String TRACE_ID = "openrec-web-";
 
-    /** the behaviours the page can report; the first two are the ones that change recommendations */
-    public static final String[] TYPES = {"click", "expose", "buy", "collect", "stay"};
+    /** behaviours the page can report; click, expose and dislike affect recommendations */
+    public static final String[] TYPES = {"click", "expose", "dislike", "buy", "collect", "stay"};
 
     @Autowired
     private RecClient recClient;
@@ -180,5 +180,9 @@ public class FeedbackService {
         }
         log.info("reset user={} scene={} clearClicks={} -> {}", userId, scene, clearClicks, deleted);
         return deleted;
+    }
+
+    public boolean resetDislikes(String userId, String scene) {
+        return Boolean.TRUE.equals(redis.delete(String.format(EVENT_KEY, userId, scene, "dislike")));
     }
 }
