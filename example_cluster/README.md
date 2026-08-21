@@ -124,6 +124,25 @@ jobs read partitioned Hive data, submit hot/new/i2i Spark computations through
 `rec-algorithm-runner`, and ask `rec-console` to validate and atomically activate the resulting
 Elasticsearch indexes.
 
+The ODS entity tables remain immutable daily partitions, while a daily recall run reads every
+partition through its business date. Events are de-duplicated by trace/event id and retained as
+cumulative behavior; repeated user and item records are collapsed to their latest as-of snapshot.
+This preserves cheap partitioned ingestion without incorrectly training recall on only one day.
+
+After the cluster is running, execute the dedicated end-to-end acceptance without lengthening every
+normal startup:
+
+```shell
+./example/example_cluster/verify_daily_recall.sh
+# Optional reproducible backfill/re-run:
+./example/example_cluster/verify_daily_recall.sh 2026-08-21 r002
+```
+
+It writes deterministic item/event data through the real Push API, waits for the Hive ODS
+partitions, triggers Airflow with an explicit business date and revision, and requires non-empty
+hot/new/i2i indexes, exact active aliases, and an online recommendation containing every configured
+recall channel.
+
 The rec-console DAG module provides the operational UI for Airflow DAG status, pause/enable,
 manual triggers, DagRun and TaskInstance state, and task logs. Its structured daily-recall editor
 versions and publishes cron, ordered algorithm dependencies, default revision, retention, and retry

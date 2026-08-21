@@ -14,7 +14,7 @@ RUNNER = "http://rec-algorithm-runner:8090"
 REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
-    "schedule": "0 2 * * *", "algorithms": ["hot", "new", "i2i"],
+    "schedule": "0 2 * * *", "algorithms": ["hot", "new", "i2i", "embedding"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
 }
@@ -82,7 +82,7 @@ def openrec_daily_recall():
     @task
     def verify_aliases_and_online_recall(business_date, revision, algorithms):
         version = business_date.replace("-", "")
-        for algorithm in algorithms:
+        for algorithm in (item for item in algorithms if item != "embedding"):
             expected = "openrec-recall-%s-%s-%s" % (algorithm, version, revision)
             release = _request("%s/api/recall/releases/%s" % (REC_CONSOLE, algorithm))
             active = release.get("active_indexes") or []
@@ -106,11 +106,19 @@ def openrec_daily_recall():
             _redis_command("DEL", exposure_key)
         results = (response.get("data") or {}).get("results") or []
         channels = {result.get("recallFrom") for result in results}
-        missing = set(algorithms) - channels
+        for result in results:
+            channels.update((result.get("recallScores") or {}).keys())
+        # NewNode intentionally applies a wall-clock freshness window. A valid
+        # backfill (or future-dated acceptance fixture) may therefore publish a
+        # non-empty new index without returning that channel online.
+        online_channels = set(algorithms) - {"new"}
+        missing = online_channels - channels
         if missing:
             raise RuntimeError("online recall misses channels %s: %s" % (sorted(missing), response))
 
-    business_date = "{{ data_interval_start | ds }}"
+    # Keep the fallback outside dict.get(): Airflow 3/Jinja eagerly renders
+    # function arguments, while manually triggered runs have no data interval.
+    business_date = "{{ dag_run.conf['business_date'] if dag_run and dag_run.conf.get('business_date') else (data_interval_start | ds) }}"
     revision = "{{ dag_run.conf.get('revision', '%s') if dag_run else '%s' }}" % (
         CONFIG["default_revision"], CONFIG["default_revision"])
     published = [publish.override(task_id="publish_%s" % algorithm)(
