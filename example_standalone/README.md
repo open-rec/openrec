@@ -2,7 +2,8 @@
 
 Run the minimum OpenRec recommendation chain on one machine. Redis and Elasticsearch come from the
 sibling `bigdata-platform` repository; the containerized `rec-server` runs with its `standalone`
-profile and writes pushed users, items, and events directly to Redis. Kafka, Spark, and
+profile and writes pushed users, items, and events directly to Redis. The standalone rec-console
+provides monitoring, entity diagnostics, and Serving Graph management. Kafka, Spark, Airflow, and
 `rank-engine` are not required.
 
 ```mermaid
@@ -37,6 +38,7 @@ the workspace layout used by this project:
 openrec/
 ├── bigdata-platform/
 ├── rec-algorithm/       # optional: regenerate the bundled recall datasets
+├── rec-console/
 ├── rec-server/
 ├── sdk/
 └── example/
@@ -50,6 +52,7 @@ defined in `bigdata-platform/.env`:
 | Redis | `127.0.0.1:6380` | none |
 | Elasticsearch | `https://127.0.0.1:9200` | `elastic` / `openrec-es-password` |
 | rec-server | `http://127.0.0.1:13579` | none |
+| rec-console | `http://127.0.0.1:8095` | none |
 | Web Demo | `http://127.0.0.1:12345` | none |
 
 The `rec-server` standalone properties already match these defaults. If `.env` is changed, override the
@@ -65,7 +68,8 @@ Run the complete chain from infrastructure through the visual demo:
 
 The script requires JDK 8, starts and checks the standalone infrastructure, builds the Java client
 components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
-the rec-server container, and sends a real recommendation request before starting the Web Demo.
+the rec-server and standalone rec-console containers, and sends a real recommendation request
+before starting the Web Demo.
 The smoke request must contain i2i, embedding, hot, and new results and must bypass Rank and Kafka.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
 either application port is already occupied.

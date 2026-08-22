@@ -125,10 +125,13 @@ for recall_kind in hot new i2i; do
 done
 
 port_in_use 13579 && die "rec-server port 13579 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
-note "Building and starting the standalone rec-server container"
+port_in_use 8095 && die "rec-console port 8095 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
+note "Building and starting the standalone rec-server and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
+wait_for_url "rec-console" http://127.0.0.1:8095/health
 note "rec-server is ready: http://127.0.0.1:13579"
+note "rec-console is ready: http://127.0.0.1:8095"
 
 note "Verifying the complete standalone recommendation chain"
 recommend_response=""
@@ -179,6 +182,7 @@ cat <<EOF
 Standalone recommendation chain is ready.
 Web Demo:  http://127.0.0.1:${web_port}
 Rec Server: http://127.0.0.1:13579
+Console:    http://127.0.0.1:8095
 API health: http://127.0.0.1:13579/health
 Stop apps:  ${SCRIPT_DIR}/stop.sh
 EOF
