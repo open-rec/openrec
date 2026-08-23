@@ -70,7 +70,8 @@ public class RecommendController {
         @RequestParam(required = false) String scene,
         @RequestParam(required = false) String userId,
         @RequestParam(required = false) Integer size,
-        @RequestParam(required = false) String itemId) {
+        @RequestParam(required = false) String itemId,
+        @RequestParam(defaultValue = "default") String ab) {
 
         String s = isBlank(scene) ? defaultScene : scene;
         String u = isBlank(userId) ? defaultUserId : userId;
@@ -81,11 +82,12 @@ public class RecommendController {
         body.put("scene", s);
         body.put("userId", u);
         body.put("personalized", false);
+        body.put("experiment", ab);
 
         List<ScoredId> ids;
         switch (name) {
             case "guess":
-                ids = recommendService.guessYouLike(s, u, n);
+                ids = recommendService.guessYouLike(s, u, n, ab);
                 body.put("source", VIA_SDK);
                 body.put("note", "triggers come from this user's click history — feedback shows up here");
                 body.put("personalized", true);
@@ -98,7 +100,7 @@ public class RecommendController {
                     body.put("items", Collections.emptyList());
                     return body;
                 }
-                ids = recommendService.related(s, u, itemId, n);
+                ids = recommendService.related(s, u, itemId, n, ab);
                 body.put("triggerItemId", itemId);
                 body.put("source", VIA_SDK);
                 body.put("note", "the selected item is sent as an explicit trigger");

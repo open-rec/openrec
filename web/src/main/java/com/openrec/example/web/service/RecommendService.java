@@ -1,7 +1,9 @@
 package com.openrec.example.web.service;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,16 +36,17 @@ public class RecommendService {
     private RecClient recClient;
 
     /** Personalized: triggers come from the user's own click history. */
-    public List<ScoredId> guessYouLike(String scene, String userId, int size) {
-        return recommend(buildReq(scene, userId, size, null), "guess");
+    public List<ScoredId> guessYouLike(String scene, String userId, int size, String experiment) {
+        return recommend(buildReq(scene, userId, size, null, experiment), "guess");
     }
 
     /** Related: the given item is passed as an explicit trigger on top of the click history. */
-    public List<ScoredId> related(String scene, String userId, String itemId, int size) {
-        return recommend(buildReq(scene, userId, size, itemId), "related");
+    public List<ScoredId> related(String scene, String userId, String itemId, int size, String experiment) {
+        return recommend(buildReq(scene, userId, size, itemId, experiment), "related");
     }
 
-    private RecommendReq buildReq(String scene, String userId, int size, String triggerItemId) {
+    private RecommendReq buildReq(String scene, String userId, int size, String triggerItemId,
+        String experiment) {
         RecommendReq req = new RecommendReq();
         req.setScene(scene);
         req.setUserId(userId);
@@ -54,6 +57,9 @@ public class RecommendService {
         if (triggerItemId != null && !triggerItemId.isEmpty()) {
             req.setItemIds(Collections.singletonList(triggerItemId));
         }
+        Map<String, Object> params = new HashMap<>();
+        params.put("ab", experiment == null || experiment.isEmpty() ? "default" : experiment);
+        req.setParams(params);
         return req;
     }
 

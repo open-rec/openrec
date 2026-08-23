@@ -14,6 +14,11 @@ public class ItemView {
     private String tags;
     private String scene;
     private String pubTime;
+    private String modifyTime;
+    private String expireTime;
+    private int weight;
+    private int status;
+    private Object extFields;
 
     /** final score the list is ordered by */
     private double score;

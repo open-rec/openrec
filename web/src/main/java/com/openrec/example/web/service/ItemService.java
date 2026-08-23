@@ -114,6 +114,11 @@ public class ItemService {
             view.setTags(item.getTags());
             view.setScene(item.getScene());
             view.setPubTime(item.getPubTime());
+            view.setModifyTime(item.getModifyTime());
+            view.setExpireTime(item.getExpireTime());
+            view.setWeight(item.getWeight());
+            view.setStatus(item.getStatus());
+            view.setExtFields(item.getExtFields());
         } catch (Exception e) {
             log.warn("cannot parse item {}: {}", scored.getId(), e.getMessage());
             view.setResolved(false);

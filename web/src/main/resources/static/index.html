@@ -18,6 +18,9 @@
             <label>场景
                 <select id="scene"></select>
             </label>
+            <label class="ab-control">AB 实验
+                <select id="experiment"><option value="default">default</option></select>
+            </label>
             <button id="reload" class="btn">重新加载</button>
             <button id="reset" class="btn btn-warn" title="清除曝光记录，让演示可以反复进行">重置曝光</button>
             <button id="resetDislike" class="btn btn-warn" title="清除当前用户和场景的负反馈规则">重置负反馈</button>
@@ -38,7 +41,6 @@
 
 <nav class="tabs" id="tabs">
     <button class="tab active" data-tab="guess">猜你喜欢</button>
-    <button class="tab" data-tab="related">相关推荐</button>
     <button class="tab" data-tab="hot">热门推荐</button>
     <button class="tab" data-tab="new">新品推荐</button>
 </nav>
@@ -50,11 +52,19 @@
 
 <main id="grid" class="grid"></main>
 
+<main id="detail" class="detail hidden">
+    <button id="detailBack" class="btn detail-back">← 返回推荐列表</button>
+    <section id="detailEntity" class="detail-entity"></section>
+    <div class="detail-related-title">相关推荐</div>
+    <section id="relatedGrid" class="grid related-grid"></section>
+    <div id="relatedEmpty" class="empty hidden"></div>
+</main>
+
 <div id="empty" class="empty hidden"></div>
 
 <footer class="foot">
     <p>
-        <b>猜你喜欢</b> / <b>相关推荐</b> 经 rec-client SDK 调用 rec-server 的 <code>/api/recommend</code>；
+        <b>猜你喜欢</b> / 商品详情下的 <b>相关推荐</b> 经 rec-client SDK 调用 rec-server 的 <code>/api/recommend</code>；
         <b>热门推荐</b> / <b>新品推荐</b> 直接读取 Redis 的 <code>hot:{scene}</code> / <code>new:{scene}</code> 召回表。
     </p>
     <p>

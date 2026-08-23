@@ -66,6 +66,20 @@ port_in_use() {
   (echo >/dev/tcp/127.0.0.1/"$1") >/dev/null 2>&1
 }
 
+assert_port_free() {
+  local port="$1" service="$2" container project
+  port_in_use "${port}" || return 0
+  container="$(docker ps --filter "publish=${port}" --format '{{.Names}}' | head -n 1)"
+  if [[ -n "${container}" ]]; then
+    project="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "${container}" 2>/dev/null || true)"
+    if [[ "${project}" == "openrec-cluster-apps" ]]; then
+      die "${service} port ${port} is occupied by cluster container ${container}; run ${WORKSPACE}/example/example_cluster/stop.sh --keep-platform before starting standalone"
+    fi
+    die "${service} port ${port} is occupied by container ${container}${project:+ (Compose project ${project})}; stop that container before starting standalone"
+  fi
+  die "${service} port ${port} is occupied by a non-Docker process; stop that process before starting standalone"
+}
+
 start_jar() {
   local name="$1" pid_file="$2" log_file="$3"
   shift 3
@@ -124,8 +138,8 @@ for recall_kind in hot new i2i; do
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"
 done
 
-port_in_use 13579 && die "rec-server port 13579 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
-port_in_use 8095 && die "rec-console port 8095 is already occupied; run ${SCRIPT_DIR}/stop.sh before starting standalone"
+assert_port_free 13579 "rec-server"
+assert_port_free 8095 "rec-console"
 note "Building and starting the standalone rec-server and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
@@ -142,7 +156,7 @@ for attempt in 1 2 3 4 5; do
   recommend_response="$(curl --noproxy '*' -fsS -X POST \
     http://127.0.0.1:13579/api/recommend \
     -H 'Content-Type: application/json' \
-    --data '{"requestId":"standalone-smoke","body":{"scene":"scene_0","size":12,"userId":"user_0","deviceId":"standalone-smoke","type":"click","debug":false}}')"
+    --data '{"requestId":"standalone-smoke","body":{"scene":"scene_0","size":12,"userId":"user_0","deviceId":"standalone-smoke","type":"click","debug":false,"params":{"ab":"default"}}}')"
   recommend_ok=true
   for channel in i2i embedding hot new; do
     if ! grep -Fq "\"recallFrom\":\"${channel}\"" <<<"${recommend_response}"; then
@@ -155,7 +169,7 @@ for attempt in 1 2 3 4 5; do
 done
 docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
 [[ "${recommend_ok}" == true ]] \
-  || die "recommendation smoke test did not return i2i, embedding, hot, and new: ${recommend_response}"
+  || die "default WeightedChannelOperationRule smoke did not allocate i2i, embedding, hot, and new: ${recommend_response}"
 # A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
 # logging level and asynchronous flushing can hide that line even though ranking was skipped.
 if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
@@ -165,7 +179,7 @@ if docker logs rec-server 2>&1 \
     | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
   die "standalone log contains an unexpected Rank or Kafka service call"
 fi
-note "Recommendation smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
+note "Default weighted-channel smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
 
 web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"

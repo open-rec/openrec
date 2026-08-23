@@ -40,6 +40,14 @@ body {
     background: #fff;
 }
 .controls input { width: 110px; }
+.ab-control {
+    margin-left: 8px;
+    padding-left: 14px;
+    border-left: 1px solid #e4e7ed;
+    font-weight: 600;
+    color: #2b6cff !important;
+}
+.ab-control select { min-width: 110px; color: #2b6cff; font-weight: 600; }
 
 .btn {
     padding: 6px 12px;
@@ -216,10 +224,52 @@ body {
 .card-actions button:hover { background: #f0f2f5; color: #1f2430; }
 .card-actions button.done { border-color: #b9dcc8; background: #e6f5ec; color: #1a7f45; }
 .card-actions button:disabled { cursor: not-allowed; opacity: .45; }
-.dislike-actions { margin-top: 6px; }
-.dislike-actions button { border-color: #edc5c7; color: #a3282d; font-size: 11px; }
-.dislike-actions button:hover:not(:disabled) { background: #fff0f0; color: #8e2025; }
-.dislike-actions button.done { border-color: #d46b70; background: #ffe5e6; color: #8e2025; }
+.feedback-wrap { flex: 1; position: relative; display: flex; }
+.feedback-wrap > button { width: 100%; border-color: #edc5c7; color: #a3282d; }
+.feedback-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    width: 150px;
+    padding: 6px;
+    z-index: 5;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 7px;
+    box-shadow: 0 5px 18px rgba(31, 36, 48, .16);
+}
+.feedback-menu button {
+    display: block;
+    width: 100%;
+    padding: 7px 8px;
+    border: 0;
+    text-align: left;
+    color: #a3282d;
+}
+.feedback-menu button:hover:not(:disabled) { background: #fff0f0; }
+
+/* ---------- item detail ---------- */
+
+.detail { padding: 18px 22px 30px; }
+.detail-back { margin-bottom: 12px; }
+.detail-entity {
+    padding: 18px;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+}
+.detail-entity h2 { margin: 0 0 16px; font-size: 20px; }
+.entity-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #e9ebf0; }
+.entity-row { display: grid; grid-template-columns: 110px 1fr; background: #fff; min-width: 0; }
+.entity-row > span { padding: 8px; background: #f7f8fa; color: #687080; font: 12px ui-monospace, monospace; }
+.entity-row pre { margin: 0; padding: 8px; white-space: pre-wrap; word-break: break-all; font: 12px ui-monospace, monospace; }
+.detail-related-title { margin: 22px 0 0; font-size: 17px; font-weight: 600; }
+.related-grid { padding-left: 0; padding-right: 0; padding-bottom: 0; }
+
+@media (max-width: 700px) {
+    .entity-fields { grid-template-columns: 1fr; }
+    .ab-control { margin-left: 0; padding-left: 0; border-left: 0; }
+}
 
 /* ---------- misc ---------- */
 

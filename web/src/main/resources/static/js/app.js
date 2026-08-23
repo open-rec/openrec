@@ -10,7 +10,6 @@
 
   var TAB_LABEL = {
     guess: '猜你喜欢',
-    related: '相关推荐',
     hot: '热门推荐',
     new: '新品推荐'
   };
@@ -22,9 +21,9 @@
     tab: 'guess',
     userId: 'user_0',
     scene: 'scene_0',
+    experiment: 'default',
     pageSize: 12,
-    /** trigger item for the related tab */
-    relatedItemId: null,
+    detailItem: null,
     /** ids from the previous load of this tab, used to mark what changed */
     previousIds: {},
     /** itemId -> timestamp when the card entered the viewport, for dwell time */
@@ -38,6 +37,7 @@
   var el = {
     userId: document.getElementById('userId'),
     scene: document.getElementById('scene'),
+    experiment: document.getElementById('experiment'),
     reload: document.getElementById('reload'),
     reset: document.getElementById('reset'),
     resetDislike: document.getElementById('resetDislike'),
@@ -45,6 +45,11 @@
     source: document.getElementById('source'),
     note: document.getElementById('note'),
     grid: document.getElementById('grid'),
+    detail: document.getElementById('detail'),
+    detailBack: document.getElementById('detailBack'),
+    detailEntity: document.getElementById('detailEntity'),
+    relatedGrid: document.getElementById('relatedGrid'),
+    relatedEmpty: document.getElementById('relatedEmpty'),
     empty: document.getElementById('empty'),
     toast: document.getElementById('toast')
   };
@@ -75,6 +80,12 @@
     }).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char];
     });
   }
 
@@ -247,9 +258,6 @@
                 item.recallFrom + (hits > 1 ? ' +' + (hits - 1) : '') + '</span>';
     }
     if (isNew) badges += '<span class="badge badge-new">NEW</span>';
-    if (state.tab === 'related' && item.id === state.relatedItemId) {
-      badges += '<span class="badge badge-trigger">trigger</span>';
-    }
     badges += '</div>';
 
     var fields = '';
@@ -266,19 +274,19 @@
 
     node.innerHTML =
       badges +
-      '<div class="card-title">' + (item.title || item.id) + '</div>' +
-      '<div class="card-id">' + item.id + '</div>' +
+      '<div class="card-title">' + escapeHtml(item.title || item.id) + '</div>' +
+      '<div class="card-id">' + escapeHtml(item.id) + '</div>' +
       fields +
       scoreBreakdown(item) +
       '<div class="card-actions">' +
       '<button data-act="collect">收藏</button>' +
       '<button data-act="buy">购买</button>' +
-      '<button data-act="related">相关</button>' +
-      '</div>' +
-      '<div class="card-actions dislike-actions">' +
+      '<span class="feedback-wrap"><button data-act="feedback">负反馈</button>' +
+      '<span class="feedback-menu hidden">' +
       '<button data-act="dislike-id">不喜欢商品</button>' +
       '<button data-act="dislike-category"' + (!item.category ? ' disabled' : '') + '>屏蔽类目</button>' +
       '<button data-act="dislike-tags"' + (!itemTags(item).length ? ' disabled' : '') + '>屏蔽标签</button>' +
+      '</span></span>' +
       '</div>';
 
     // clicking the card body is the click behaviour; buttons handle themselves
@@ -286,7 +294,7 @@
       if (event.target.closest('.card-actions')) return;
       node.classList.add('clicked');
       report(item.id, 'click').then(function () {
-        toast('已记录 click：' + item.id + '，重新加载「猜你喜欢」即可看到变化');
+        openDetail(item);
       });
     });
 
@@ -295,9 +303,12 @@
         event.stopPropagation();
         var act = button.dataset.act;
 
-        if (act === 'related') {
-          state.relatedItemId = item.id;
-          switchTab('related');
+        if (act === 'feedback') {
+          var menu = button.parentNode.querySelector('.feedback-menu');
+          document.querySelectorAll('.feedback-menu').forEach(function (other) {
+            if (other !== menu) other.classList.add('hidden');
+          });
+          menu.classList.toggle('hidden');
           return;
         }
 
@@ -309,6 +320,7 @@
             if (!data || !data.ok) return;
             button.classList.add('done');
             node.classList.add('disliked');
+            button.closest('.feedback-menu').classList.add('hidden');
             var scopeName = scope === 'id' ? item.id
               : scope === 'category' ? item.category : itemTags(item).join(', ');
             toast('已提交负反馈：' + scopeName + '。cluster 写入异步，稍后重新加载可验证过滤');
@@ -360,10 +372,56 @@
     state.previousIds[state.tab] = items.map(function (item) { return item.id; });
   }
 
+  function detailValue(value) {
+    if (value == null || value === '') return '-';
+    if (typeof value === 'object') return JSON.stringify(value, null, 2);
+    return String(value);
+  }
+
+  function openDetail(item) {
+    flushStay();
+    state.detailItem = item;
+    el.grid.classList.add('hidden');
+    el.empty.classList.add('hidden');
+    el.detail.classList.remove('hidden');
+    el.detailEntity.innerHTML =
+      '<h2>' + escapeHtml(item.title || item.id) + '</h2>' +
+      '<div class="entity-fields">' + [
+        ['id', item.id], ['title', item.title], ['category', item.category],
+        ['tags', item.tags], ['scene', item.scene], ['weight', item.weight],
+        ['status', item.status], ['pubTime', item.pubTime],
+        ['modifyTime', item.modifyTime], ['expireTime', item.expireTime],
+        ['extFields', item.extFields]
+      ].map(function (field) {
+        return '<div class="entity-row"><span>' + field[0] + '</span><pre>' +
+          escapeHtml(detailValue(field[1])) + '</pre></div>';
+      }).join('') + '</div>';
+
+    el.relatedGrid.innerHTML = '';
+    el.relatedEmpty.textContent = '相关推荐加载中…';
+    el.relatedEmpty.classList.remove('hidden');
+    var url = '/api/tab/related?scene=' + encodeURIComponent(state.scene) +
+      '&userId=' + encodeURIComponent(state.userId) +
+      '&size=' + state.pageSize +
+      '&itemId=' + encodeURIComponent(item.id) +
+      '&ab=' + encodeURIComponent(state.experiment);
+    getJson(url).then(function (data) {
+      if (state.detailItem !== item) return;
+      var items = data.items || [];
+      el.relatedEmpty.classList.toggle('hidden', items.length > 0);
+      if (!items.length) el.relatedEmpty.textContent = data.error || '暂无相关推荐';
+      var observer = setupObserver();
+      items.forEach(function (related) {
+        var node = card(related, false);
+        el.relatedGrid.appendChild(node);
+        if (observer) observer.observe(node);
+      });
+    }).catch(function (err) {
+      el.relatedEmpty.textContent = '相关推荐加载失败: ' + err.message;
+    });
+  }
+
   function emptyMessage(data) {
-    if (state.tab === 'related' && !state.relatedItemId) {
-      return '先在其他 tab 点击某张卡片的「相关」按钮，再回到这里。';
-    }
     if (state.tab === 'guess') {
       return '没有候选了。<br>每次推荐都会写入曝光记录，24 小时内曝光过的物品会被过滤掉 —— ' +
              '点右上角「重置曝光」即可恢复。';
@@ -381,12 +439,12 @@
     var url = '/api/tab/' + state.tab +
               '?scene=' + encodeURIComponent(state.scene) +
               '&userId=' + encodeURIComponent(state.userId) +
-              '&size=' + state.pageSize;
-    if (state.tab === 'related' && state.relatedItemId) {
-      url += '&itemId=' + encodeURIComponent(state.relatedItemId);
-    }
+              '&size=' + state.pageSize +
+              '&ab=' + encodeURIComponent(state.experiment);
 
     el.grid.innerHTML = '';
+    el.grid.classList.remove('hidden');
+    el.detail.classList.add('hidden');
     el.empty.textContent = '加载中…';
     el.empty.classList.remove('hidden');
 
@@ -402,6 +460,7 @@
 
   function switchTab(tab) {
     state.tab = tab;
+    state.detailItem = null;
     Array.prototype.forEach.call(el.tabs.children, function (button) {
       button.classList.toggle('active', button.dataset.tab === tab);
     });
@@ -417,6 +476,26 @@
 
   el.reload.addEventListener('click', load);
 
+  el.detailBack.addEventListener('click', function () {
+    state.detailItem = null;
+    load();
+  });
+
+  el.experiment.addEventListener('change', function () {
+    state.experiment = el.experiment.value || 'default';
+    state.previousIds = {};
+    if (state.detailItem) openDetail(state.detailItem);
+    else load();
+  });
+
+  document.addEventListener('click', function (event) {
+    if (!event.target.closest('.feedback-wrap')) {
+      document.querySelectorAll('.feedback-menu').forEach(function (menu) {
+        menu.classList.add('hidden');
+      });
+    }
+  });
+
   el.userId.addEventListener('change', function () {
     state.userId = el.userId.value.trim() || 'user_0';
     el.userId.value = state.userId;
@@ -427,7 +506,6 @@
   el.scene.addEventListener('change', function () {
     state.scene = el.scene.value;
     state.previousIds = {};
-    state.relatedItemId = null;
     load();
   });
 
@@ -478,6 +556,16 @@
         option.textContent = scene;
         option.selected = scene === state.scene;
         el.scene.appendChild(option);
+      });
+      return getJson('/api/experiments').then(function (data) {
+        el.experiment.innerHTML = '';
+        (data.experiments || ['default']).forEach(function (experiment) {
+          var option = document.createElement('option');
+          option.value = experiment;
+          option.textContent = experiment;
+          el.experiment.appendChild(option);
+        });
+        state.experiment = el.experiment.value || 'default';
       });
     })
     .catch(function () {

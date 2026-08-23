@@ -70,7 +70,9 @@ The script requires JDK 8, starts and checks the standalone infrastructure, buil
 components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.
-The smoke request must contain i2i, embedding, hot, and new results and must bypass Rank and Kafka.
+The smoke request explicitly routes to the default experiment and verifies that its
+`WeightedChannelOperationRule` returns i2i, embedding, hot, and new results while bypassing Rank
+and Kafka.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
 either application port is already occupied.
 
