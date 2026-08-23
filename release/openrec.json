@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "distribution": "openrec",
+  "version": "0.1.0-dev",
+  "status": "development",
+  "components": {
+    "bigdata-platform": {
+      "repository": "https://github.com/open-rec/bigdata-platform.git",
+      "ref": "master",
+      "required_for": ["standalone", "cluster"]
+    },
+    "data-processor": {
+      "repository": "https://github.com/open-rec/data-processor.git",
+      "ref": "master",
+      "required_for": ["cluster"]
+    },
+    "rank-engine": {
+      "repository": "https://github.com/open-rec/rank-engine.git",
+      "ref": "master",
+      "required_for": ["cluster"]
+    },
+    "rec-algorithm": {
+      "repository": "https://github.com/open-rec/rec-algorithm.git",
+      "ref": "master",
+      "required_for": ["standalone", "cluster"]
+    },
+    "rec-console": {
+      "repository": "https://github.com/open-rec/rec-console.git",
+      "ref": "master",
+      "required_for": ["standalone", "cluster"]
+    },
+    "rec-server": {
+      "repository": "https://github.com/open-rec/rec-server.git",
+      "ref": "master",
+      "required_for": ["standalone", "cluster"]
+    },
+    "sdk": {
+      "repository": "https://github.com/open-rec/sdk.git",
+      "ref": "master",
+      "required_for": ["standalone", "cluster"]
+    }
+  },
+  "contracts": {
+    "recommendation_api": 1,
+    "kafka_mutation_envelope": 1,
+    "release_manifest": 1
+  }
+}

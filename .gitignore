@@ -7,5 +7,11 @@
 # project files
 .idea
 target
+dist/
+/.runtime/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
 
 data/douban

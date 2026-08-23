@@ -95,8 +95,8 @@ freshest rows. `NewNode` and the Web Demo divide the stored value by the query-t
 before returning it, so clients continue to receive a normalized score. Future online writes can
 use their event Unix timestamp directly.
 
-Key layout reference:
-[recall-engine](https://github.com/open-rec/recall-engine/blob/main/redis/design.md).
+The active online recall contract, stable aliases, and storage implementations are documented in
+the [`rec-server` RecallStore guide](https://github.com/open-rec/rec-server#recall-store).
 
 ## verify
 

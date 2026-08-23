@@ -1,0 +1,70 @@
+name: Standalone E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 18 * * *'
+  push:
+    branches: [master]
+    paths:
+      - 'example_standalone/**'
+      - 'init/**'
+      - 'web/**'
+      - 'data/test/**'
+      - 'release/openrec.json'
+      - 'scripts/**'
+      - '.github/workflows/standalone-e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standalone-e2e
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out distribution
+        uses: actions/checkout@v4
+        with:
+          path: openrec/example
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Check out manifest components
+        working-directory: openrec/example
+        run: ./scripts/checkout-components.sh
+
+      - name: Start and verify the complete standalone distribution
+        working-directory: openrec
+        run: ./example/example_standalone/start.sh
+
+      - name: Capture diagnostics
+        if: failure()
+        working-directory: openrec
+        run: |
+          docker ps -a
+          docker compose -f example/example_standalone/docker-compose.yml logs --no-color > example/example_standalone/.runtime/compose.log 2>&1 || true
+          bigdata-platform/platform.sh logs redis elasticsearch > example/example_standalone/.runtime/platform.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-e2e-logs
+          path: openrec/example/example_standalone/.runtime/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop standalone distribution
+        if: always()
+        working-directory: openrec
+        run: ./example/example_standalone/stop.sh --with-storage || true

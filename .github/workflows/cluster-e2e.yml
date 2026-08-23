@@ -1,0 +1,73 @@
+name: Cluster E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 17 * * 6'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cluster-e2e
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    # Never attach this label to a runner that accepts untrusted fork pull requests.
+    runs-on: [self-hosted, linux, x64, openrec-cluster]
+    timeout-minutes: 120
+    steps:
+      - name: Check out distribution
+        uses: actions/checkout@v4
+        with:
+          path: openrec/example
+          clean: true
+
+      - name: Check out manifest components
+        working-directory: openrec/example
+        run: ./scripts/checkout-components.sh
+
+      - name: Start cluster and run serving smoke acceptance
+        working-directory: openrec
+        run: ./example/example_cluster/start.sh
+
+      - name: Verify streaming, cumulative recall, publication, and online serving
+        working-directory: openrec
+        run: ./example/example_cluster/verify_daily_recall.sh
+
+      - name: Verify entity deletion and historical tombstones
+        working-directory: openrec
+        run: ./example/example_cluster/verify_entity_delete.sh
+
+      - name: Verify business analytics
+        working-directory: openrec
+        run: ./example/example_cluster/verify_data_analytics.sh
+
+      - name: Verify rank model train, activate, serve, and rollback
+        working-directory: openrec
+        run: ./example/example_cluster/verify_rank_model.sh
+
+      - name: Capture diagnostics
+        if: failure()
+        working-directory: openrec
+        run: |
+          mkdir -p example/example_cluster/.runtime/ci-logs
+          docker ps -a > example/example_cluster/.runtime/ci-logs/docker-ps.txt 2>&1 || true
+          docker compose -f example/example_cluster/docker-compose.yml logs --no-color > example/example_cluster/.runtime/ci-logs/business.log 2>&1 || true
+          docker logs airflow-scheduler > example/example_cluster/.runtime/ci-logs/airflow-scheduler.log 2>&1 || true
+          docker logs spark-master > example/example_cluster/.runtime/ci-logs/spark-master.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-e2e-logs
+          path: openrec/example/example_cluster/.runtime/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop cluster distribution
+        if: always()
+        working-directory: openrec
+        run: ./example/example_cluster/stop.sh || true

@@ -1,124 +1,173 @@
-# example
+# OpenRec Distribution
 
-Everything needed to get `open-rec` running locally: a sample dataset, a loader that seeds Redis and
-Elasticsearch, and step-by-step guides for both deployment modes.
+[![Quality](https://github.com/open-rec/example/actions/workflows/quality.yml/badge.svg)](https://github.com/open-rec/example/actions/workflows/quality.yml)
+[![Standalone E2E](https://github.com/open-rec/example/actions/workflows/standalone-e2e.yml/badge.svg)](https://github.com/open-rec/example/actions/workflows/standalone-e2e.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-New here? Go straight to **[example_standalone](example_standalone)** — it walks through a full working
-stack on one machine (macOS or Linux).
+This repository is the **distribution and compatibility authority** for OpenRec. It assembles the
+independently developed OpenRec components into versioned standalone and cluster deployments,
+provides a reproducible sample dataset and Web Demo, and owns cross-repository end-to-end CI.
 
-## contents
+[Quick start](#quick-start) · [Deployment modes](#deployment-modes) ·
+[Architecture](docs/architecture.md) · [Versioning](docs/versioning.md) ·
+[Releasing](docs/releasing.md) · [Organization overview](https://github.com/open-rec)
 
-| Directory | Contents |
+## What this repository guarantees
+
+- `release/openrec.json` records the exact component refs composing this distribution.
+- Pull requests validate repository policy, DAG syntax, shell, Compose, and cross-repository Java
+  compatibility.
+- Standalone E2E starts real Redis, Elasticsearch, rec-server, rec-console, and the Web Demo, imports
+  sample data, and executes a real recommendation request.
+- Cluster E2E validates Kafka ingestion, Spark projections, HDFS/Hive persistence, versioned recall
+  publication, online recommendation, analytics, deletion semantics, model activation, and rollback.
+- Release tags package the manifest, deployment definitions, documentation, sample data, and
+  checksums as one immutable distribution bundle.
+
+The component repositories remain the source of their application images and libraries. This
+repository defines which component versions are known to work together.
+
+## Quick start
+
+### 1. Clone the distribution and components
+
+```shell
+git clone https://github.com/open-rec/example.git
+cd example
+./scripts/checkout-components.sh
+```
+
+The checkout script creates the required sibling layout and checks out the refs in the release
+manifest:
+
+```text
+openrec/
+├── example/
+├── bigdata-platform/
+├── data-processor/
+├── rank-engine/
+├── rec-algorithm/
+├── rec-console/
+├── rec-server/
+└── sdk/
+```
+
+Pass a destination to create the workspace somewhere else:
+
+```shell
+./scripts/checkout-components.sh /opt/openrec
+```
+
+### 2. Start standalone
+
+```shell
+./example_standalone/start.sh
+```
+
+The command builds current component sources in an isolated runtime directory, starts the serving
+infrastructure and applications, imports the bundled dataset, verifies the configured serving DAG,
+and starts the Web Demo.
+
+| Service | URL |
 |---|---|
-| [data](data) | sample datasets — a committed synthetic one, plus notes on the Douban dataset |
-| [init](init) | `InitStandalone`, the loader that writes a dataset into Redis / Elasticsearch |
-| [web](web) | a visual demo: four recall tabs, live behaviour feedback through the sdk |
-| [example_standalone](example_standalone) | single-machine setup: Redis + Elasticsearch + rec-server |
-| [example_cluster](example_cluster) | distributed setup via Kafka with Flink or Spark feature processing |
+| Web Demo | http://127.0.0.1:12345 |
+| OpenRec Console | http://127.0.0.1:8095 |
+| Recommendation API | http://127.0.0.1:13579 |
+| Grafana | http://127.0.0.1:3000 |
 
-Both deployment examples provide `start.sh` and `stop.sh`; see the selected example directory for
-the full-chain smoke checks and the option that also stops its storage/platform services.
-
-## architecture
-
-### standalone
-
-Redis + Elasticsearch + `rec-server`. Pushed data goes straight into Redis and the offline recall
-tables are loaded from CSV. Everything required is in this repo.
-
-![standalone](example_standalone/doc/openrec_standalone.jpg "standalone")
-
-More details: [example_standalone](example_standalone)
-
-### cluster
-
-Ingest moves to Kafka and processing is distributed. The serving path is unchanged — same DAG, same key
-layout. The stream/batch processor is not published yet, so this mode cannot currently be run to
-completion.
-
-![cluster](example_cluster/doc/openrec_cluster.jpg "cluster")
-
-More details: [example_cluster](example_cluster)
-
-## init data
-
-Build the loader — `rec-proto` (from `rec-server`) and `rec-client` (from `sdk`) must be in your local
-Maven repo first — then run it from this directory:
+Stop the applications while retaining infrastructure data, or remove the complete standalone
+runtime:
 
 ```shell
-cd init && mvn clean package -DskipTests && cd ..
-
-java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir]
+./example_standalone/stop.sh
+./example_standalone/stop.sh --with-storage
 ```
 
-`data_dir` is optional and resolved relative to the working directory, defaulting to `data/test` — the
-synthetic dataset committed here:
+Sample credentials and published ports are intended only for an isolated development machine.
+Review the [standalone guide](example_standalone) before sharing the deployment on a network.
+
+## Deployment modes
+
+| Concern | Standalone | Cluster |
+|---|---|---|
+| Primary use | Evaluation, development, small-to-medium integration | Distributed, production-oriented integration |
+| Ingestion | Direct Redis write | Versioned Kafka mutations |
+| Historical storage | Bundled source data | HBase and partitioned Hive/HDFS data |
+| Processing | Local loader and algorithms | Spark/Flink streaming and Spark batch jobs |
+| Recall release | Local import to Elasticsearch aliases | Airflow + Spark + rec-console validation and activation |
+| Ranking | Bypass supported | Trained, evaluated, versioned rank models |
+| Control plane | Monitoring, entities, serving graph | Full graph, recall, Airflow, analytics, model, and experiment operations |
+| Required host resources | Developer workstation | Dedicated integration host or CI runner |
+
+Start cluster only on a host sized for the complete data platform:
 
 ```shell
-java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
+./example_cluster/start.sh
+./example_cluster/verify_daily_recall.sh
+./example_cluster/verify_entity_delete.sh
+./example_cluster/verify_data_analytics.sh
+./example_cluster/verify_rank_model.sh
 ```
 
-Full argument reference, the expected CSV layout and what gets written where: [init](init).
+See the [cluster guide](example_cluster) for prerequisites, startup ownership, endpoints, failure
+diagnosis, and shutdown behavior.
 
-## check the data
+## Distribution contents
 
-### redis
-
-```shell
-docker exec redis redis-cli DBSIZE
-docker exec redis redis-cli GET 'user:{user_0}'
-docker exec redis redis-cli GET 'item:{item_0}'
-docker exec redis redis-cli ZCARD 'event:{user_247}:scene_0:click'
-docker exec redis redis-cli ZRANGE 'i2i:{item_2}:scene_0' 0 4 WITHSCORES
-docker exec redis redis-cli ZCARD 'hot:{scene_0}'
-```
-
-Users and items are stored as JSON strings:
-
-```
-127.0.0.1:6380> GET 'item:{item_0}'
-{"id":"item_0","weight":5,"title":"title_0","category":"category_98","tags":"tags_26",
- "scene":"scene_2","pubTime":"1667355833","modifyTime":"1667037573","expireTime":"1667494042",
- "status":1,"extFields":"{}"}
-```
-
-Events, i2i, hot and new are sorted sets — events scored by timestamp, the recall tables by relevance.
-The full key layout is documented in
-[recall-engine](https://github.com/open-rec/recall-engine/blob/main/redis/design.md).
-
-### elasticsearch
-
-One vector index per scene, `{scene}-item-vector-index`:
-
-```shell
-curl -k -u elastic:<password> 'https://localhost:9200/_cat/indices/*vector*?v'
-
-curl -k -u elastic:<password> -X POST \
-  https://localhost:9200/scene_0-item-vector-index/_search \
-  -H 'Content-Type: application/json' -d '{
-  "knn": {
-    "field": "vector",
-    "query_vector": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-    "k": 10,
-    "num_candidates": 20
-  },
-  "fields": ["id"],
-  "size": 5
-}'
-```
-
-Elasticsearch 8 needs `https`, and `-k` because the default certificate is self-signed.
-
-## related repos
-
-| Repo | Role |
+| Path | Purpose |
 |---|---|
-| [rec-server](https://github.com/open-rec/rec-server) | the online recommendation service |
-| [sdk](https://github.com/open-rec/sdk) | `rec-client`, the Java client |
-| [recall-engine](https://github.com/open-rec/recall-engine) | Redis / Elasticsearch install scripts and index design |
-| [rec-algorithm](https://github.com/open-rec/rec-algorithm) | offline recall and rank computation |
-| [rank-engine](https://github.com/open-rec/rank-engine) | online ranking service (optional) |
-| [model](https://github.com/open-rec/model) | pre-computed Douban recall tables and a trained model |
-| [bigdata-platform](https://github.com/open-rec/bigdata-platform) | Kafka / ZooKeeper / Spark for cluster mode |
+| [`release/openrec.json`](release/openrec.json) | Distribution version, component repositories, refs, and compatibility metadata |
+| [`example_standalone`](example_standalone) | Minimum complete deployment and smoke acceptance |
+| [`example_cluster`](example_cluster) | Distributed deployment and lifecycle acceptance suites |
+| [`data`](data) | Small committed dataset for deterministic CI and evaluation |
+| [`init`](init) | Redis and Elasticsearch data/recall loader |
+| [`web`](web) | Interactive recommendation and feedback demo |
+| [`scripts`](scripts) | Component checkout, policy validation, and release assembly |
+| [`docs`](docs) | Architecture, versioning, release, and CI documentation |
+
+## End-to-end CI
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> Quality[Policy · syntax · Compose]
+    Quality --> Build[Cross-repository build and tests]
+    Build --> Standalone[Standalone E2E]
+    Main[Default branch or schedule] --> Standalone
+    Schedule[Schedule or manual dispatch] --> Cluster[Cluster E2E on dedicated runner]
+    Tag[Version tag] --> Bundle[Validated release bundle + checksums]
+```
+
+| Workflow | Trigger | Runner | Coverage |
+|---|---|---|---|
+| `quality.yml` | Pull request and push | GitHub-hosted | Manifest, links, generated files, shell, Python DAGs, Compose, Java build/tests |
+| `standalone-e2e.yml` | Main changes, schedule, manual | GitHub-hosted | Complete standalone startup and recommendation acceptance |
+| `cluster-e2e.yml` | Schedule and manual | Self-hosted `openrec-cluster` | Complete distributed data, recall, analytics, deletion, model lifecycle |
+| `release.yml` | `v*` tag | GitHub-hosted | Version consistency, distribution archive, SHA-256 checksums, GitHub Release |
+
+Cluster CI deliberately requires a dedicated runner because running Kafka, HDFS, Hive, HBase,
+Spark, Airflow, Redis, Elasticsearch, Prometheus, Grafana, and all OpenRec applications together is
+not reliable on a standard hosted runner. Runner setup and cleanup rules are documented in
+[CI](docs/ci.md).
+
+## Versioning and releases
+
+The current development version is stored in [`VERSION`](VERSION). Component repositories may
+release independently, but an OpenRec distribution release is valid only when every ref in
+`release/openrec.json` is immutable and all required E2E checks pass.
+
+See [versioning](docs/versioning.md) for compatibility rules and [releasing](docs/releasing.md) for
+the release checklist. Production automation must consume a version tag or commit digest rather
+than `master` or `latest`.
+
+## Contributing and support
+
+Use this repository for installation, distribution, release, and cross-component issues. File
+component-local defects in the repository that owns the code. Contributions follow the shared
+[OpenRec contribution guide](https://github.com/open-rec/.github/blob/master/CONTRIBUTING.md),
+[Code of Conduct](https://github.com/open-rec/.github/blob/master/CODE_OF_CONDUCT.md), and
+[Security Policy](https://github.com/open-rec/.github/blob/master/SECURITY.md).
+
+## License
+
+This distribution is licensed under the [Apache License 2.0](LICENSE). Included component and
+third-party artifacts retain their respective licenses.
