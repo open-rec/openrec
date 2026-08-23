@@ -51,15 +51,14 @@ if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
 fi
 
 mkdir -p "${LOG_DIR}"
-for pid_file in "${STATE_DIR}/web.pid"; do
-  if [[ -f "${pid_file}" ]]; then
-    pid="$(cat "${pid_file}")"
-    if [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null; then
-      die "cluster applications are already running; use ${SCRIPT_DIR}/stop.sh first"
-    fi
-    rm -f "${pid_file}"
+pid_file="${STATE_DIR}/web.pid"
+if [[ -f "${pid_file}" ]]; then
+  pid="$(cat "${pid_file}")"
+  if [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null; then
+    die "cluster applications are already running; use ${SCRIPT_DIR}/stop.sh first"
   fi
-done
+  rm -f "${pid_file}"
+fi
 
 for required_port in 13579 12345 8123 8091 8095; do
   if (echo >/dev/tcp/127.0.0.1/"${required_port}") >/dev/null 2>&1; then

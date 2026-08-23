@@ -42,15 +42,14 @@ fi
 
 mkdir -p "${LOG_DIR}"
 
-for managed_pid_file in "${STATE_DIR}/web.pid"; do
-  if [[ -f "${managed_pid_file}" ]]; then
-    managed_pid="$(cat "${managed_pid_file}")"
-    if [[ "${managed_pid}" =~ ^[0-9]+$ ]] && kill -0 "${managed_pid}" 2>/dev/null; then
-      die "standalone applications are already running; use ${SCRIPT_DIR}/stop.sh before restarting"
-    fi
-    rm -f "${managed_pid_file}"
+managed_pid_file="${STATE_DIR}/web.pid"
+if [[ -f "${managed_pid_file}" ]]; then
+  managed_pid="$(cat "${managed_pid_file}")"
+  if [[ "${managed_pid}" =~ ^[0-9]+$ ]] && kill -0 "${managed_pid}" 2>/dev/null; then
+    die "standalone applications are already running; use ${SCRIPT_DIR}/stop.sh before restarting"
   fi
-done
+  rm -f "${managed_pid_file}"
+fi
 
 wait_for_url() {
   local name="$1" url="$2" attempts="${3:-60}"
