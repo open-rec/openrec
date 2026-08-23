@@ -11,12 +11,12 @@
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "master",
+      "ref": "main",
       "required_for": ["cluster"]
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "master",
+      "ref": "main",
       "required_for": ["cluster"]
     },
     "rec-algorithm": {
@@ -36,7 +36,7 @@
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
-      "ref": "master",
+      "ref": "main",
       "required_for": ["standalone", "cluster"]
     }
   },

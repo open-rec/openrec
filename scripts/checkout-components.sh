@@ -12,6 +12,21 @@ command -v python3 >/dev/null 2>&1 || { echo "error: Python 3 is required" >&2; 
 mkdir -p "${WORKSPACE}"
 WORKSPACE="$(cd "${WORKSPACE}" && pwd)"
 
+resolve_component_commit() {
+  local target="$1" ref="$2" candidate commit
+  for candidate in "${ref}^{commit}" "refs/remotes/origin/${ref}^{commit}" \
+      "refs/tags/${ref}^{commit}"; do
+    if commit="$(git -C "${target}" rev-parse --verify "${candidate}" 2>/dev/null)"; then
+      printf '%s\n' "${commit}"
+      return 0
+    fi
+  done
+  echo "error: cannot resolve component ref '${ref}' in ${target}" >&2
+  echo "available remote branches:" >&2
+  git -C "${target}" for-each-ref --format='  %(refname:short)' refs/remotes/origin >&2
+  return 1
+}
+
 while IFS=$'\t' read -r name repository ref; do
   target="${WORKSPACE}/${name}"
   if [[ -e "${target}" && ! -d "${target}/.git" ]]; then
@@ -29,7 +44,9 @@ while IFS=$'\t' read -r name repository ref; do
     echo "==> Cloning ${name}"
     git clone "${repository}" "${target}"
   fi
-  git -C "${target}" checkout --detach "${ref}"
+  commit="$(resolve_component_commit "${target}" "${ref}")"
+  git -C "${target}" checkout --detach "${commit}"
+  echo "    ${name}: ${ref} -> ${commit}"
 done < <(python3 - "${MANIFEST}" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as source:
