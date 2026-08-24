@@ -99,6 +99,17 @@ From the workspace root:
 ./example/example_cluster/start.sh
 ```
 
+For a mainland-China development host that cannot reliably reach Docker Hub or PyPI, select the
+local mirror defaults without exporting variables manually:
+
+```shell
+./example/example_cluster/start.sh --local
+```
+
+`--local` uses the Aliyun PyTorch base image and the Tsinghua PyPI mirror. Explicit
+`RANK_BASE_IMAGE` or `RANK_PIP_INDEX_URL` environment values still take precedence when a different
+local registry or package mirror is required.
+
 The command performs the complete cold-start path:
 
 1. Builds and starts the `bigdata-platform` cluster preset, then runs its infrastructure smoke tests.

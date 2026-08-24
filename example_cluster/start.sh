@@ -8,6 +8,33 @@ LOG_DIR="${STATE_DIR}/logs"
 BUILD_DIR="${STATE_DIR}/build"
 SPARK_PID_FILE="/tmp/openrec-data-processor.pid"
 SPARK_LOG_FILE="/tmp/openrec-data-processor.log"
+LOCAL_MODE=false
+
+usage() {
+  cat <<EOF
+Usage: ${0##*/} [--local]
+
+  --local  Use the repository's mainland-China PyTorch and PyPI mirrors.
+  -h, --help  Show this help.
+
+Explicit RANK_BASE_IMAGE and RANK_PIP_INDEX_URL values take precedence over --local defaults.
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --local) LOCAL_MODE=true ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; echo "error: unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [[ "${LOCAL_MODE}" == true ]]; then
+  : "${RANK_BASE_IMAGE:=mirrors-ssl.aliyuncs.com/pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel}"
+  : "${RANK_PIP_INDEX_URL:=https://pypi.tuna.tsinghua.edu.cn/simple}"
+  export RANK_BASE_IMAGE RANK_PIP_INDEX_URL
+fi
 
 note() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 die() { echo "error: $*" >&2; return 1; }
@@ -20,6 +47,10 @@ cleanup_on_error() {
   exit "${status}"
 }
 trap cleanup_on_error ERR
+
+if [[ "${LOCAL_MODE}" == true ]]; then
+  note "Local mirrors enabled (rank base: ${RANK_BASE_IMAGE}, pip: ${RANK_PIP_INDEX_URL})"
+fi
 
 if command -v mvn >/dev/null 2>&1; then
   MVN="$(command -v mvn)"
