@@ -15,7 +15,7 @@ concurrency:
 jobs:
   distribution:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out distribution
         uses: actions/checkout@v4
@@ -31,6 +31,8 @@ jobs:
 
       - name: Check out manifest components
         working-directory: openrec/example
+        env:
+          OPENREC_COMPONENTS: rec-server sdk
         run: ./scripts/checkout-components.sh
 
       - name: Validate distribution policy and deployment definitions
