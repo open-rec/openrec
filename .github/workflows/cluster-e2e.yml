@@ -61,25 +61,9 @@ jobs:
         working-directory: openrec/example
         run: ./scripts/checkout-components.sh
 
-      - name: Start cluster and run serving smoke acceptance
+      - name: Start and verify the complete cluster distribution
         working-directory: openrec
         run: ./example/example_cluster/start.sh
-
-      - name: Verify streaming, cumulative recall, publication, and online serving
-        working-directory: openrec
-        run: ./example/example_cluster/verify_daily_recall.sh
-
-      - name: Verify entity deletion and historical tombstones
-        working-directory: openrec
-        run: ./example/example_cluster/verify_entity_delete.sh
-
-      - name: Verify business analytics
-        working-directory: openrec
-        run: ./example/example_cluster/verify_data_analytics.sh
-
-      - name: Verify rank model train, activate, serve, and rollback
-        working-directory: openrec
-        run: ./example/example_cluster/verify_rank_model.sh
 
       - name: Capture diagnostics
         if: failure()
