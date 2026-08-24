@@ -160,6 +160,11 @@ def openrec_cluster_bootstrap():
         if not data.get("results"):
             raise RuntimeError("recommendation returned no candidates: %s; recall counts: %s"
                                % (response, _recall_counts()))
+        unranked = [result.get("id") for result in data["results"]
+                    if result.get("rankScore") is None]
+        if unranked:
+            raise RuntimeError("recommendation silently skipped ranking for items %s: %s"
+                               % (unranked, response))
 
     @task
     def ingestion_smoke():
