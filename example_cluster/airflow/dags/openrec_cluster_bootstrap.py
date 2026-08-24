@@ -50,6 +50,24 @@ def _recommendation_request(request_id):
     )
 
 
+def _recall_counts():
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    token = __import__("base64").b64encode(b"elastic:openrec-es-password").decode()
+    counts = {}
+    for name in ("openrec-recall-hot-active", "openrec-recall-new-active",
+                 "openrec-recall-i2i-active", "scene_0-item-vector-index"):
+        try:
+            response = _request(
+                "https://elasticsearch:9200/%s/_count" % name,
+                headers={"Authorization": "Basic " + token}, context=context)
+            counts[name] = response.get("count")
+        except Exception as error:  # diagnostics must not hide the recommendation failure
+            counts[name] = "error: %s" % error
+    return counts
+
+
 @dag(
     dag_id="openrec_cluster_bootstrap",
     schedule=None,
@@ -123,7 +141,7 @@ def openrec_cluster_bootstrap():
                 return
             time.sleep(1)
 
-    @task
+    @task(retries=6, retry_delay=timedelta(seconds=10))
     def recommendation_smoke():
         # Redis persists across cluster restarts. Previous smoke requests write exposure events for
         # user_0, which can eventually filter every sample candidate and make a healthy chain look
@@ -140,7 +158,8 @@ def openrec_cluster_bootstrap():
         # rec-server responses used by some local deployments.
         data = response.get("data") or response
         if not data.get("results"):
-            raise RuntimeError("recommendation returned no candidates: %s" % response)
+            raise RuntimeError("recommendation returned no candidates: %s; recall counts: %s"
+                               % (response, _recall_counts()))
 
     @task
     def ingestion_smoke():

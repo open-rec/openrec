@@ -75,6 +75,19 @@ wait_for_url() {
   die "${name} did not become ready: ${url}"
 }
 
+wait_for_es_documents() {
+  local name="$1" index="$2" attempts="${3:-30}" response="" i
+  for ((i = 1; i <= attempts; i++)); do
+    response="$(docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
+      "https://localhost:9200/${index}/_count" 2>/dev/null || true)"
+    if grep -Eq '"count"[[:space:]]*:[[:space:]]*[1-9][0-9]*' <<<"${response}"; then
+      return 0
+    fi
+    sleep 1
+  done
+  die "${name} is missing or empty after ${attempts}s: ${response:-no response}"
+}
+
 port_in_use() { (echo >/dev/tcp/127.0.0.1/"$1") >/dev/null 2>&1; }
 
 start_jar() {
@@ -210,6 +223,15 @@ note "Loading sample serving data"
     com.openrec.example.InitStandalone \
     127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
 )
+
+note "Verifying loaded cluster serving data"
+docker exec redis redis-cli EXISTS 'user:{user_0}' | grep -qx 1 \
+  || die "sample user was not loaded into Redis"
+for recall_kind in hot new i2i; do
+  wait_for_es_documents "${recall_kind} recall alias" \
+    "openrec-recall-${recall_kind}-active"
+done
+wait_for_es_documents "embedding recall index" "scene_0-item-vector-index"
 
 note "Building and starting rec-server, rank-engine, rec-algorithm runner, and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
