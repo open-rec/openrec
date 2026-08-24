@@ -192,7 +192,7 @@ fi
 docker cp "${BUILD_DIR}/data-processor/spark/target/rec-spark-1.0-SNAPSHOT.jar" \
   spark-master:/tmp/openrec-data-processor.jar
 docker exec -d spark-master bash -lc \
-  "echo \$\$ >${SPARK_PID_FILE}; exec /opt/spark/bin/spark-submit --class com.openrec.dp.spark.SparkFeatureJob --master spark://spark-master:7077 --total-executor-cores 4 /tmp/openrec-data-processor.jar >${SPARK_LOG_FILE} 2>&1"
+  "echo \$\$ >${SPARK_PID_FILE}; exec /opt/spark/bin/spark-submit --class com.openrec.dp.spark.SparkFeatureJob --master spark://spark-master:7077 --total-executor-cores ${OPENREC_SPARK_TOTAL_EXECUTOR_CORES:-4} /tmp/openrec-data-processor.jar >${SPARK_LOG_FILE} 2>&1"
 for attempt in {1..30}; do
   if docker exec spark-master test -s "${SPARK_PID_FILE}"; then
     spark_pid="$(docker exec spark-master cat "${SPARK_PID_FILE}" | tr -d '\r')"

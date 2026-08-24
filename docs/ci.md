@@ -2,16 +2,13 @@
 
 ## Runner tiers
 
-Quality and standalone workflows use GitHub-hosted Ubuntu runners. Cluster acceptance uses a
-dedicated Linux x86-64 runner with the labels `self-hosted`, `linux`, `x64`, and `openrec-cluster`.
+Quality, standalone, and cluster workflows use GitHub-hosted Ubuntu runners. The full cluster was
+designed for at least 16 CPU cores, 32 GiB RAM, and 100 GiB free storage, so its hosted-runner job
+uses reduced development heaps, limits Compose build concurrency, and reduces Spark executor cores.
+These limits are CI acceptance sizing rather than production recommendations.
 
-The cluster runner should provide at least 16 CPU cores, 32 GiB RAM, 100 GiB free storage, Docker
-Engine with Compose v2, JDK 8, Maven, Python 3, curl, rsync, Git, and Bash. It must be dedicated to
-trusted OpenRec workflow code; cluster jobs execute repository scripts and start privileged data
-infrastructure.
-
-Do not expose a persistent self-hosted runner to pull requests from forks. Cluster workflow triggers
-are limited to scheduled default-branch runs and maintainer-initiated manual dispatches.
+Cluster workflow triggers remain limited to scheduled default-branch runs and
+maintainer-initiated manual dispatches because the job starts a large privileged Docker topology.
 
 ## Test ownership
 
