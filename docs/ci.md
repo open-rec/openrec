@@ -24,8 +24,9 @@ Every E2E workflow runs cleanup under `always()` and uploads sanitized diagnosti
 The runner should also use an ephemeral VM or perform an independent post-job cleanup so an aborted
 workflow cannot contaminate the next run.
 
-The quality workflow checks out only the Java components used by its compatibility build. Set
-`OPENREC_COMPONENTS` to a space-separated list when running `scripts/checkout-components.sh` to
-select components; when it is unset, the script continues to check out the complete manifest.
+The quality workflow checks out the Java components used by its compatibility build and every
+component referenced by the standalone and cluster Compose definitions. Set `OPENREC_COMPONENTS`
+to a space-separated list when running `scripts/checkout-components.sh` to select components; when
+it is unset, the script continues to check out the complete manifest.
 Manifest branch refs are checked out as local tracking branches so a development workspace remains
 attached to its branch. Immutable commit and tag refs intentionally use detached HEAD mode.

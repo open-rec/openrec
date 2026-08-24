@@ -32,7 +32,7 @@ jobs:
       - name: Check out manifest components
         working-directory: openrec/example
         env:
-          OPENREC_COMPONENTS: rec-server sdk
+          OPENREC_COMPONENTS: rec-server sdk rec-console rank-engine rec-algorithm
         run: ./scripts/checkout-components.sh
 
       - name: Validate distribution policy and deployment definitions
