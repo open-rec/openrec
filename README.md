@@ -1,7 +1,8 @@
 # OpenRec Distribution
 
-[![Quality](https://github.com/open-rec/example/actions/workflows/quality.yml/badge.svg)](https://github.com/open-rec/example/actions/workflows/quality.yml)
-[![Standalone E2E](https://github.com/open-rec/example/actions/workflows/standalone-e2e.yml/badge.svg)](https://github.com/open-rec/example/actions/workflows/standalone-e2e.yml)
+[![Quality](https://github.com/open-rec/openrec/actions/workflows/quality.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/quality.yml)
+[![Standalone E2E](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml)
+[![Cluster E2E](https://github.com/open-rec/openrec/actions/workflows/cluster-e2e.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/cluster-e2e.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 This repository is the **distribution and compatibility authority** for OpenRec. It assembles the
