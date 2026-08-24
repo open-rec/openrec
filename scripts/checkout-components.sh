@@ -28,6 +28,26 @@ resolve_component_commit() {
   return 1
 }
 
+checkout_component_ref() {
+  local target="$1" ref="$2" commit
+  if git -C "${target}" show-ref --verify --quiet "refs/remotes/origin/${ref}"; then
+    if git -C "${target}" show-ref --verify --quiet "refs/heads/${ref}"; then
+      git -C "${target}" checkout "${ref}"
+      git -C "${target}" merge --ff-only "refs/remotes/origin/${ref}"
+    else
+      git -C "${target}" checkout --track -b "${ref}" "refs/remotes/origin/${ref}"
+    fi
+    commit="$(git -C "${target}" rev-parse HEAD)"
+    printf '    %s: %s -> %s (branch)\n' "$(basename "${target}")" "${ref}" "${commit}"
+    return 0
+  fi
+
+  commit="$(resolve_component_commit "${target}" "${ref}")"
+  git -C "${target}" checkout --detach "${commit}"
+  printf '    %s: %s -> %s (detached immutable ref)\n' \
+    "$(basename "${target}")" "${ref}" "${commit}"
+}
+
 component_rows="$(python3 - "${MANIFEST}" "${COMPONENTS}" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as source:
@@ -63,9 +83,7 @@ while IFS=$'\t' read -r name repository ref; do
     echo "==> Cloning ${name}"
     git clone "${repository}" "${target}"
   fi
-  commit="$(resolve_component_commit "${target}" "${ref}")"
-  git -C "${target}" checkout --detach "${commit}"
-  echo "    ${name}: ${ref} -> ${commit}"
+  checkout_component_ref "${target}" "${ref}"
 done <<< "${component_rows}"
 
 printf '\nOpenRec components are ready in %s.\nStart standalone:\n  %s/example/example_standalone/start.sh\n' \
