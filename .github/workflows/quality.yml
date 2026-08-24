@@ -18,12 +18,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out distribution
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: openrec/example
 
       - name: Set up Java 8
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '8'
