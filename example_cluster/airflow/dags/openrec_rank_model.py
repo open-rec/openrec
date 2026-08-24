@@ -21,6 +21,8 @@ def request(url, body=None, timeout=7200):
      start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
      params={"business_date": Param("", type="string"), "revision": Param("r001", type="string"),
              "scene": Param("scene_0", type="string"), "epochs": Param(5, type="integer", minimum=1),
+             "model_type": Param("lr", type="string", enum=["lr", "fm"]),
+             "factor_dim": Param(8, type="integer", minimum=1, maximum=256),
              "min_auc": Param(0.0, type="number", minimum=0, maximum=1)},
      tags=["openrec", "rank", "model"],
      description="Cumulative Hive data -> train -> evaluate gate -> atomic rank publish")
@@ -33,7 +35,7 @@ def rank_model():
         if not business_date:
             business_date = datetime.now(timezone.utc).date().isoformat()
         payload = {key: conf.get(key, params[key]) for key in
-                   ("revision", "scene", "epochs", "min_auc")}
+                   ("revision", "scene", "epochs", "min_auc", "model_type", "factor_dim")}
         payload["date"] = business_date
         result = request("http://rec-algorithm-runner:8090/jobs/rank/train", payload)
         if result.get("status") != "success":
