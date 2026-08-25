@@ -128,7 +128,7 @@ for offset, char in enumerate(payload):
 done
 
 note "Verifying non-empty versioned indexes and active aliases"
-for algorithm in hot new i2i; do
+for algorithm in hot i2i; do
   expected="openrec-recall-${algorithm}-${BUSINESS_DATE//-/}-${REVISION}"
   release="$(curl --noproxy '*' -fsS "http://127.0.0.1:8095/api/recall/releases/${algorithm}")"
   python3 -c '
@@ -159,5 +159,5 @@ Daily recall end-to-end acceptance passed.
 Business date: ${BUSINESS_DATE}
 Revision:      ${REVISION}
 Airflow run:   ${RUN_ID}
-Verified: Push -> Kafka -> Spark -> cumulative Hive -> hot/new/i2i/embedding publish -> ES aliases -> online recommend
+Verified: Push -> Kafka -> Spark -> cumulative Hive -> hot/i2i/embedding publish -> ES aliases -> online recommend
 EOF

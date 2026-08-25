@@ -46,6 +46,7 @@ public class InitStandalone {
     private static String testRecallEmbeddingData;
     private static String testRecallHotData;
     private static String testRecallNewData;
+    private static String featureDataDir;
 
     private static final String ITEM_VECTOR_INDEX = "{\n" +
             "  \"mappings\": {\n" +
@@ -77,6 +78,7 @@ public class InitStandalone {
 
     static {
         useDataDir(DEFAULT_DATA_DIR);
+        useModelDir(System.getProperty("user.dir") + "/../model");
     }
 
     private static void useDataDir(String dataDir) {
@@ -86,7 +88,13 @@ public class InitStandalone {
         testUserData = testDataDir + "/user.csv";
         testEventData = testDataDir + "/event.csv";
 
-        String recallDataDir = testDataDir + "/recall";
+    }
+
+    private static void useModelDir(String modelDir) {
+        String absolute = Paths.get(modelDir).isAbsolute() ? modelDir
+                : System.getProperty("user.dir") + "/" + modelDir;
+        featureDataDir = absolute + "/feature/default";
+        String recallDataDir = absolute + "/recall";
         testRecallI2iData = recallDataDir + "/i2i.csv";
         testRecallEmbeddingData = recallDataDir + "/embedding.csv";
         testRecallHotData = recallDataDir + "/hot.csv";
@@ -180,6 +188,44 @@ public class InitStandalone {
             throw new RuntimeException(e);
         }
         log.info("init event data finished");
+    }
+
+    private static void initRedisFeatureData(RedisTemplate redisTemplate, String entityType,
+                                             String fileName) {
+        java.nio.file.Path path = Paths.get(featureDataDir, fileName);
+        if (!Files.isRegularFile(path)) {
+            log.warn("feature snapshot not found, skipping: {}", path);
+            return;
+        }
+        int count = 0;
+        try (Reader reader = Files.newBufferedReader(path)) {
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader()
+                    .withIgnoreEmptyLines(true).withTrim().parse(reader);
+            for (CSVRecord record : records) {
+                String entityId = record.get("id");
+                long asOfTime = record.isMapped("as_of_time") && !record.get("as_of_time").isEmpty()
+                        ? Double.valueOf(record.get("as_of_time")).longValue() : 0L;
+                Map<String, Double> features = new LinkedHashMap<>();
+                for (String column : record.toMap().keySet()) {
+                    if (column.startsWith("event_")) {
+                        String value = record.get(column);
+                        features.put(column, value.isEmpty() ? 0.0 : Double.valueOf(value));
+                    }
+                }
+                Map<String, Object> snapshot = new LinkedHashMap<>();
+                snapshot.put("entityType", entityType);
+                snapshot.put("entityId", entityId);
+                snapshot.put("asOfTime", asOfTime);
+                snapshot.put("features", features);
+                redisTemplate.opsForValue().set(
+                        String.format("feature:%s:{%s}", entityType, entityId),
+                        snapshot);
+                count++;
+            }
+        } catch (IOException | NumberFormatException e) {
+            throw new RuntimeException("invalid feature snapshot " + path, e);
+        }
+        log.info("init {} feature snapshots finished: {} rows", entityType, count);
     }
 
     private static void initRedisI2iData(RedisTemplate redisTemplate) {
@@ -401,6 +447,8 @@ public class InitStandalone {
         initRedisUserData(redisTemplate);
         initRedisItemData(redisTemplate);
         initRedisEventData(redisTemplate);
+        initRedisFeatureData(redisTemplate, "user", "user_feature.csv");
+        initRedisFeatureData(redisTemplate, "item", "item_feature.csv");
 
         initRedisI2iData(redisTemplate);
         initRedisHotData(redisTemplate);
@@ -423,13 +471,18 @@ public class InitStandalone {
 
 
     public static void main(String[] args) {
-        if (args.length != 6 && args.length != 7) {
-            log.error("Usage: java InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir]");
+        if (args.length < 6 || args.length > 8) {
+            log.error("Usage: java InitStandalone <redis_host> <redis_port> <es_host> <es_port> "
+                    + "<es_user> <es_password> [data_dir] [model_dir]");
             return;
         }
 
         if (args.length == 7) {
             useDataDir(args[6]);
+        }
+        if (args.length >= 8) {
+            useDataDir(args[6]);
+            useModelDir(args[7]);
         }
         if (!Files.isDirectory(Paths.get(testDataDir))) {
             log.error("data dir not found: {}, please run it from the example repo root, "

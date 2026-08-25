@@ -70,9 +70,9 @@ The script requires JDK 8, starts and checks the standalone infrastructure, buil
 components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.
-The smoke request explicitly routes to the default experiment and verifies that its
-`WeightedChannelOperationRule` returns i2i, embedding, hot, and new results while bypassing Rank
-and Kafka.
+The smoke request explicitly routes to the default experiment and verifies i2i, embedding, and hot
+results from its `WeightedChannelOperationRule` while bypassing Rank and Kafka. It intentionally
+does not require `new`, whose online item supply belongs to the application.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
 either application port is already occupied.
 
@@ -125,6 +125,12 @@ cd ../..
 
 ## 3. Load the sample data
 
+`start.sh` supports direct mode switching. If cluster application containers or its managed Web
+Demo are running, it stops the cluster application layer with `example_cluster/stop.sh
+--keep-platform` before doing any build or data import. Redis, Elasticsearch and the remaining
+shared platform stay running. Unrelated processes occupying standalone ports still cause an early,
+non-destructive failure.
+
 Run the loader from `example/`, because its default `data/test` path is relative to the current
 working directory:
 
@@ -136,11 +142,12 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
 cd ..
 ```
 
-This imports users, items, and events into Redis. It loads hot/new/i2i into versioned Elasticsearch
+The start script first validates `model/default.manifest.json` against the raw CSV hashes and rebuilds
+stale deployable artifacts. The loader imports users, items, events and feature snapshots into Redis. It loads hot/new/i2i into versioned Elasticsearch
 indexes behind `openrec-recall-{algorithm}-active`, and embedding vectors into the per-scene vector
 index. Development-only Redis copies of hot/new/i2i are also loaded for RecallStore parity checks,
-but the standalone rec-server uses `ElasticsearchRecallStore` by default. Pass an optional final
-argument to load another directory, for example `data/douban`.
+but the standalone rec-server uses `ElasticsearchRecallStore` by default. Direct loader invocation
+accepts optional `data_dir` and `model_dir` arguments.
 
 Verify the imported data through the containers:
 
@@ -166,7 +173,9 @@ The default operation rule allocates results as 30% i2i, 30% embedding, 20% hot,
 selecting the highest scores available inside those quotas. The image includes the operation plugin.
 To try the random insertion strategy instead, set `operationName` to `RandomInsertOperationRule`;
 the bundled
-configuration reserves 10% hot and 10% new candidates at random positions.
+configuration reserves 10% hot and 10% new candidates at random positions. Startup verification does
+not require the `new` share to be present because applications own the online supply of newly
+published items.
 
 ## 5. Verify recommendations
 

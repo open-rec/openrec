@@ -11,51 +11,43 @@ here so the standalone walkthrough works out of the box. This is the default `da
 |---|---|---|
 | `test/user.csv` | 10,000 | `user_0` … `user_9999` |
 | `test/item.csv` | 10,000 | `item_0` … `item_9999` |
-| `test/event.csv` | 100,001 | `click` and `expose` events, ~10% clicks |
-| `test/recall/i2i.csv` | 111,359 | item-to-item pairs |
-| `test/recall/embedding.csv` | 28,974 | 10-dimensional item vectors |
-| `test/recall/hot.csv` | 6,000 | 2,000 per scene |
-| `test/recall/new.csv` | 6,000 | 2,000 per scene |
+| `test/event.csv` | 143,488 | impression funnels: expose/stay/click/collect/buy |
 
 Three scenes: `scene_0`, `scene_1`, `scene_2`, split roughly evenly across events.
 
-Useful handles when testing: `user_247` has 12 clicks in `scene_0`. The default Demo user `user_0`
-also has a scene_0 click on `item_8571`, which is guaranteed to have an i2i recall table.
+The generator uses interests, item metadata, popularity and position to create learnable conversion
+patterns. It is deterministic with seed 42 and a fixed end timestamp. Each scene also reserves 50
+items at that end timestamp, so the `new` recall channel has stable candidates during smoke tests.
+
+`user_0` is the stable cross-scene smoke identity. Every scene contains at least 24 exposures,
+12 clicks, 4 collects and 2 buys for this user, including a multi-item click sequence suitable for
+I2I triggers and rank comparisons.
 
 Two things to expect from this data:
 
-- The loader maps each normalized `new.csv` score into the current Unix-time domain. This preserves
-  freshness order and ensures the highest-scored rows fall inside `NewNode`'s configured window.
-- Event and item timestamps remain fixed at generation time; only the new recall table is rebased
-  when it is loaded.
+- These are raw inputs only. Deployable recall, rank and feature artifacts live in the sibling
+  `model` repository and are rebuilt when the raw input hashes change.
 
-Regenerate (writes to `rec-algorithm/data/`, not here):
+Regenerate the raw inputs:
 
 ```shell
-cd rec-algorithm/tool
-python gen_test_data.py       # user / item / event
-python gen_recall_data.py     # recall tables
+cd rec-algorithm
+python tool/gen_test_data.py --output ../example/data/test --seed 42
 ```
-
-`gen_recall_data.py` has the hot / new / embedding generators commented out — only i2i runs by
-default. The committed files here were produced with all of them enabled.
 
 ## douban
 
 The real [Douban](https://www.douban.com/) open dataset, single scene `douban_movie`. Only used for
 simulation at a realistic scale, and **not committed — the raw tables are too large for git**.
 
-The pre-computed recall tables are published separately in
-[model](https://github.com/open-rec/model) (i2i ~1.07M rows, embedding ~37.8k vectors). The raw
-`item.csv` / `user.csv` / `event.csv` are not distributed, so you need to obtain those yourself before
-this directory can be used end to end:
+The raw `item.csv` / `user.csv` / `event.csv` are not distributed, so you need to obtain those
+yourself before this directory can be used end to end:
 
 ```
 data/douban/
 ├── item.csv          # bring your own
 ├── user.csv          # bring your own
 ├── event.csv         # bring your own
-└── recall/           # from the model repo
 ```
 
 Then point the loader at it:

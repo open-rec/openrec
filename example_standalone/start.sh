@@ -34,6 +34,7 @@ command -v docker >/dev/null 2>&1 || die "Docker is required"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v rsync >/dev/null 2>&1 || die "rsync is required for the isolated Java build"
+command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
 
 MVN_ARGS=()
 if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
@@ -79,6 +80,23 @@ assert_port_free() {
   die "${service} port ${port} is occupied by a non-Docker process; stop that process before starting standalone"
 }
 
+switch_from_cluster() {
+  local cluster_web_pid_file="${WORKSPACE}/example/example_cluster/.runtime/web.pid"
+  local cluster_running=false cluster_web_pid=""
+  if [[ -n "$(docker ps -q --filter label=com.docker.compose.project=openrec-cluster-apps 2>/dev/null)" ]]; then
+    cluster_running=true
+  fi
+  if [[ -f "${cluster_web_pid_file}" ]]; then
+    cluster_web_pid="$(cat "${cluster_web_pid_file}" 2>/dev/null || true)"
+    if [[ "${cluster_web_pid}" =~ ^[0-9]+$ ]] && kill -0 "${cluster_web_pid}" 2>/dev/null; then
+      cluster_running=true
+    fi
+  fi
+  [[ "${cluster_running}" == true ]] || return 0
+  note "Switching from cluster applications to standalone (keeping shared platform services)"
+  "${WORKSPACE}/example/example_cluster/stop.sh" --keep-platform
+}
+
 start_jar() {
   local name="$1" pid_file="$2" log_file="$3"
   shift 3
@@ -88,9 +106,20 @@ start_jar() {
   note "${name} started (pid ${pid}, log ${log_file})"
 }
 
+switch_from_cluster
+
+# Detect unrelated conflicts before platform startup, builds, or data import. Previously this check
+# happened after Loading standalone sample data, wasting work and leaving mutated storage behind.
+assert_port_free 13579 "rec-server"
+assert_port_free 8095 "rec-console"
+assert_port_free 12345 "Web Demo"
+
 note "Starting standalone Redis and Elasticsearch"
 "${WORKSPACE}/bigdata-platform/platform.sh" up standalone
 "${WORKSPACE}/bigdata-platform/platform.sh" smoke standalone
+
+note "Ensuring deployable model artifacts match the raw sample data"
+"${WORKSPACE}/example/scripts/ensure-model-artifacts.sh"
 
 note "Preparing an isolated Java build workspace"
 mkdir -p "${BUILD_DIR}/rec-server" "${BUILD_DIR}/sdk/java-client" \
@@ -115,30 +144,37 @@ note "Loading standalone sample data"
   cd "${WORKSPACE}/example"
   "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar" \
     com.openrec.example.InitStandalone \
-    127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
+    127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password \
+    "${WORKSPACE}/example/data/test" "${WORKSPACE}/model"
 )
 
 redis_size="$(docker exec redis redis-cli DBSIZE | tr -d '\r')"
 [[ "${redis_size}" =~ ^[1-9][0-9]*$ ]] || die "sample data was not loaded into Redis"
-now_secs="$(date +%s)"
-new_window_count="$(docker exec redis redis-cli ZCOUNT 'new:{scene_0}' "$((now_secs - 86400))" "${now_secs}" | tr -d '\r')"
-[[ "${new_window_count}" =~ ^[1-9][0-9]*$ ]] \
-  || die "new items were not loaded into the current 24-hour window"
-i2i_count="$(docker exec redis redis-cli ZCARD 'i2i:{item_8571}:scene_0' | tr -d '\r')"
+read -r smoke_user smoke_item < <(python3 - "${WORKSPACE}" <<'PY'
+import csv, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+left = {row["left_item"] for row in csv.DictReader(
+    (root / "model/recall/i2i.csv").open()) if row["scene"] == "scene_0"}
+for row in csv.DictReader((root / "example/data/test/event.csv").open()):
+    if row["scene"] == "scene_0" and row["type"] == "click" and row["item_id"] in left:
+        print(row["user_id"], row["item_id"]); break
+else:
+    raise SystemExit("no scene_0 click has an i2i recall table")
+PY
+)
+i2i_count="$(docker exec redis redis-cli ZCARD "i2i:{${smoke_item}}:scene_0" | tr -d '\r')"
 [[ "${i2i_count}" =~ ^[1-9][0-9]*$ ]] || die "the default i2i trigger item has no recall data"
-docker exec redis redis-cli ZSCORE 'event:{user_0}:scene_0:click' '"item_8571"' | grep -Eq '[0-9]+' \
+docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${smoke_item}\"" | grep -Eq '[0-9]+' \
   || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
-for recall_kind in hot new i2i; do
+for recall_kind in hot i2i; do
   docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
     "https://localhost:9200/_alias/openrec-recall-${recall_kind}-active" >/dev/null \
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"
 done
 
-assert_port_free 13579 "rec-server"
-assert_port_free 8095 "rec-console"
 note "Building and starting the standalone rec-server and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
@@ -151,13 +187,13 @@ recommend_response=""
 recommend_ok=false
 for attempt in 1 2 3 4 5; do
   # A previous smoke request must not affect this attempt through the expose filter.
-  docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
+  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
   recommend_response="$(curl --noproxy '*' -fsS -X POST \
     http://127.0.0.1:13579/api/recommend \
     -H 'Content-Type: application/json' \
-    --data '{"requestId":"standalone-smoke","body":{"scene":"scene_0","size":12,"userId":"user_0","deviceId":"standalone-smoke","type":"click","debug":false,"params":{"ab":"default"}}}')"
+    --data "{\"requestId\":\"standalone-smoke\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\"}}}")"
   recommend_ok=true
-  for channel in i2i embedding hot new; do
+  for channel in i2i embedding hot; do
     if ! grep -Fq "\"recallFrom\":\"${channel}\"" <<<"${recommend_response}"; then
       recommend_ok=false
       break
@@ -166,9 +202,9 @@ for attempt in 1 2 3 4 5; do
   [[ "${recommend_ok}" == true ]] && break
   sleep 1
 done
-docker exec redis redis-cli DEL 'event:{user_0}:scene_0:expose' >/dev/null
+docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
 [[ "${recommend_ok}" == true ]] \
-  || die "default WeightedChannelOperationRule smoke did not allocate i2i, embedding, hot, and new: ${recommend_response}"
+  || die "default WeightedChannelOperationRule smoke did not allocate i2i, embedding, and hot: ${recommend_response}"
 # A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
 # logging level and asynchronous flushing can hide that line even though ranking was skipped.
 if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
@@ -178,7 +214,7 @@ if docker logs rec-server 2>&1 \
     | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
   die "standalone log contains an unexpected Rank or Kafka service call"
 fi
-note "Default weighted-channel smoke passed: i2i, embedding, hot, and new are all present; Rank and Kafka are bypassed"
+note "Default weighted-channel smoke passed: i2i, embedding, and hot are present; new-item supply is user-owned; Rank and Kafka are bypassed"
 
 web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"

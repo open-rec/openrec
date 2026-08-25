@@ -151,8 +151,9 @@ normal startup:
 
 It writes deterministic item/event data through the real Push API, waits for the Hive ODS
 partitions, triggers Airflow with an explicit business date and revision, and requires non-empty
-hot/new/i2i indexes, exact active aliases, and an online recommendation containing every configured
-recall channel.
+hot/i2i indexes, exact active aliases, and an online recommendation containing the required recall
+channels. The check does not require `new`; applications own the online supply of newly published
+items.
 
 The rec-console DAG module provides the operational UI for Airflow DAG status, pause/enable,
 manual triggers, DagRun and TaskInstance state, and task logs. Its structured daily-recall editor
@@ -179,9 +180,10 @@ Run the deterministic two-version acceptance after the cluster is healthy:
 bash example/example_cluster/verify_rank_model.sh 2026-08-21
 ```
 
-The script verifies Hive ingestion, two train/evaluate/publish runs, release metadata, the model
-loaded by rank-engine, and rollback to the first version. Model releases are also visible under
-the rec-console **Rank Model** page.
+The script verifies Hive ingestion, an LR and an FM train/evaluate/publish run with their independent
+Feature Sets and fitted sidecars, release metadata and checksums, FM scores returned through the
+rec-server online DAG, and rollback to the LR version. Model releases are also visible under the
+rec-console **Rank Model** page.
 
 Validate the rec-console business-analysis dashboard with isolated deterministic events:
 
@@ -237,7 +239,8 @@ The cluster stop command does not touch `example_standalone` processes or contai
 | Processing | Not required | Spark data-processor writes Redis and Hive-backed storage |
 | Ranking service | Disabled | rank-engine container |
 | Airflow workflow | Not required | Bootstrap, daily recall, model release, and rollback DAGs |
-| Recall publishing | Bundled sample import | Spark staging writes with `rec-console` version control |
+| Default artifact bootstrap | Hash-validated `model/` reuse or rebuild | Same bundle; cluster releases may overwrite defaults |
+| Recall publishing | `model/recall` import | Spark staging writes with `rec-console` version control |
 | rec-server profile | `standalone` | `cluster` |
 | Exposure collection | Synthetic exposure enabled | Synthetic exposure disabled; browser reports cards visible at least 50% through Push API |
 

@@ -76,6 +76,9 @@ command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v rsync >/dev/null 2>&1 || die "rsync is required"
 command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
 
+note "Ensuring deployable model artifacts match the raw sample data"
+"${WORKSPACE}/example/scripts/ensure-model-artifacts.sh"
+
 MVN_ARGS=()
 if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
   MVN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
@@ -252,13 +255,14 @@ note "Loading sample serving data"
   cd "${WORKSPACE}/example"
   "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar" \
     com.openrec.example.InitStandalone \
-    127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password
+    127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password \
+    "${WORKSPACE}/example/data/test" "${WORKSPACE}/model"
 )
 
 note "Verifying loaded cluster serving data"
 docker exec redis redis-cli EXISTS 'user:{user_0}' | grep -qx 1 \
   || die "sample user was not loaded into Redis"
-for recall_kind in hot new i2i; do
+for recall_kind in hot i2i; do
   wait_for_es_documents "${recall_kind} recall alias" \
     "openrec-recall-${recall_kind}-active"
 done
