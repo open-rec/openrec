@@ -43,6 +43,8 @@ public class InitStandalone {
     private static String testUserData;
     private static String testEventData;
     private static String testRecallI2iData;
+    private static String testRecallContentI2iData;
+    private static String testRecallUserCfU2iData;
     private static String testRecallEmbeddingData;
     private static String testRecallHotData;
     private static String testRecallNewData;
@@ -69,7 +71,8 @@ public class InitStandalone {
             "    \"scene\": {\"type\": \"keyword\"},\n" +
             "    \"item\": {\"type\": \"keyword\"},\n" +
             "    \"left_item\": {\"type\": \"keyword\"},\n" +
-            "    \"right_item\": {\"type\": \"keyword\"},\n" +
+    "    \"right_item\": {\"type\": \"keyword\"},\n" +
+            "    \"user\": {\"type\": \"keyword\"},\n" +
             "    \"score\": {\"type\": \"double\"},\n" +
             "    \"publish_time\": {\"type\": \"long\"}\n" +
             "  }},\n" +
@@ -95,8 +98,10 @@ public class InitStandalone {
                 : System.getProperty("user.dir") + "/" + modelDir;
         featureDataDir = absolute + "/feature/default";
         String recallDataDir = absolute + "/recall";
-        testRecallI2iData = recallDataDir + "/i2i.csv";
-        testRecallEmbeddingData = recallDataDir + "/embedding.csv";
+        testRecallI2iData = recallDataDir + "/item_cf_i2i.csv";
+        testRecallContentI2iData = recallDataDir + "/content_i2i.csv";
+        testRecallUserCfU2iData = recallDataDir + "/user_cf_u2i.csv";
+        testRecallEmbeddingData = recallDataDir + "/item_seq_emb.csv";
         testRecallHotData = recallDataDir + "/hot.csv";
         testRecallNewData = recallDataDir + "/new.csv";
     }
@@ -228,9 +233,10 @@ public class InitStandalone {
         log.info("init {} feature snapshots finished: {} rows", entityType, count);
     }
 
-    private static void initRedisI2iData(RedisTemplate redisTemplate) {
+    private static void initRedisI2iData(RedisTemplate redisTemplate, String tableName,
+                                         String csvPath) {
         try {
-            Reader reader = Files.newBufferedReader(Paths.get(testRecallI2iData));
+            Reader reader = Files.newBufferedReader(Paths.get(csvPath));
             Iterable<CSVRecord> records = CSVFormat.DEFAULT
                     .withFirstRecordAsHeader()
                     .withIgnoreEmptyLines(true)
@@ -241,12 +247,30 @@ public class InitStandalone {
                 String leftItem = record.get("left_item");
                 String rightItem = record.get("right_item");
                 Double score = Double.valueOf(record.get("score"));
-                redisTemplate.opsForZSet().add(String.format("i2i:{%s}:%s", leftItem, scene), rightItem, score);
+                redisTemplate.opsForZSet().add(
+                        String.format("%s:{%s}:%s", tableName, leftItem, scene), rightItem, score);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        log.info("init i2i data finished");
+        log.info("init {} data finished", tableName);
+    }
+
+    private static void initRedisU2iData(RedisTemplate redisTemplate, String tableName,
+                                         String csvPath) {
+        try {
+            Reader reader = Files.newBufferedReader(Paths.get(csvPath));
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader()
+                    .withIgnoreEmptyLines(true).withTrim().parse(reader);
+            for (CSVRecord record : records) {
+                redisTemplate.opsForZSet().add(
+                        String.format("%s:{%s}:%s", tableName, record.get("user"), record.get("scene")),
+                        record.get("item"), Double.valueOf(record.get("score")));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        log.info("init {} data finished", tableName);
     }
 
     private static void initRedisHotData(RedisTemplate redisTemplate) {
@@ -406,9 +430,12 @@ public class InitStandalone {
                 Map<String, Object> document = new HashMap<>();
                 document.put("scene", record.get("scene"));
                 document.put("score", Double.valueOf(record.get("score")));
-                if ("i2i".equals(kind)) {
+                if (kind.endsWith("i2i")) {
                     document.put("left_item", record.get("left_item"));
                     document.put("right_item", record.get("right_item"));
+                } else if ("user-cf-u2i".equals(kind)) {
+                    document.put("user", record.get("user"));
+                    document.put("item", record.get("item"));
                 } else {
                     document.put("item", record.get("item"));
                     if ("new".equals(kind)) {
@@ -416,8 +443,10 @@ public class InitStandalone {
                                 (long)(Double.valueOf(record.get("score")) * now));
                     }
                 }
-                String id = "i2i".equals(kind)
+                String id = kind.endsWith("i2i")
                         ? record.get("scene") + ":" + record.get("left_item") + ":" + record.get("right_item")
+                        : "user-cf-u2i".equals(kind)
+                        ? record.get("scene") + ":" + record.get("user") + ":" + record.get("item")
                         : record.get("scene") + ":" + record.get("item");
                 bulk.operations(op -> op.index(idx -> idx.index(indexName).id(id).document(document)));
                 batchCount++;
@@ -450,7 +479,9 @@ public class InitStandalone {
         initRedisFeatureData(redisTemplate, "user", "user_feature.csv");
         initRedisFeatureData(redisTemplate, "item", "item_feature.csv");
 
-        initRedisI2iData(redisTemplate);
+        initRedisI2iData(redisTemplate, "item-cf-i2i", testRecallI2iData);
+        initRedisI2iData(redisTemplate, "content-i2i", testRecallContentI2iData);
+        initRedisU2iData(redisTemplate, "user-cf-u2i", testRecallUserCfU2iData);
         initRedisHotData(redisTemplate);
         initRedisNewData(redisTemplate);
         log.info("init redis data finished");
@@ -464,7 +495,9 @@ public class InitStandalone {
         }
         initEsRecallData(esClient, "hot", testRecallHotData);
         initEsRecallData(esClient, "new", testRecallNewData);
-        initEsRecallData(esClient, "i2i", testRecallI2iData);
+        initEsRecallData(esClient, "item-cf-i2i", testRecallI2iData);
+        initEsRecallData(esClient, "content-i2i", testRecallContentI2iData);
+        initEsRecallData(esClient, "user-cf-u2i", testRecallUserCfU2iData);
         initEsEmbeddingData(esClient);
         log.info("init es data finished");
     }

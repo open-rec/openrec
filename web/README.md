@@ -28,7 +28,7 @@ whole recommendation chain and starts this demo last on port 12345.
 > **This demo depends on three rec-server fixes.** Build rec-server from a tree that has them:
 >
 > - `PushRedisService` built its event key from a template with two placeholders while passing three arguments, so the userId was dropped and events landed in `event:scene_0:click:{}` instead of `event:{user_0}:scene_0:click`. Feedback returned HTTP 200 but no recall channel could read it, so recommendations never changed.
-> - `RedisService.getZSet(List, …)` did not strip the JSON quotes its members are stored with, while the single-key overload did. Ids from the i2i channel therefore arrived as `"item_5887"` and never matched the unquoted exposure set — **exposure filtering silently did nothing for that channel**, and it is the channel that dominates a personalized result.
+> - `RedisService.getZSet(List, …)` did not strip the JSON quotes its members are stored with, while the single-key overload did. IDs from `item_cf_i2i` therefore arrived as `"item_5887"` and never matched the unquoted exposure set — **exposure filtering silently did nothing for that channel**.
 > - `CombineNode` never incremented its loop counter, so the configured `size` had no effect, and it did not de-duplicate across channels, so one item could occupy several slots and reach the client more than once.
 >
 > If results look frozen, or the same item keeps coming back after being shown, check those first.
@@ -78,14 +78,14 @@ The backend is not ceremony. Two things require it:
 carries a `meta` line with the full breakdown behind its score:
 
 ```
-item_5887   [i2i]        recall=i2i:0.1700; rank=-
-item_7888   [i2i +1]     recall=i2i:0.0959,hot:0.5833; rank=-
+item_5887   [item_cf_i2i]     recall=item_cf_i2i:0.1700; rank=-
+item_7888   [content_i2i +1]  recall=content_i2i:0.0959,hot:0.5833; rank=-
 item_6689   [hot]        recall=hot:1.0000; rank=-
 ```
 
 **An item recalled by several channels lists all of them.** De-duplication decides which score
 *ranks* the item (the first channel wins), but the other channels' scores are kept rather than
-discarded — `item_7888` above is weak in i2i (0.0959) yet strong in hot (0.5833), and that
+discarded — `item_7888` above is weak in content I2I (0.0959) yet strong in hot (0.5833), and that
 disagreement is exactly what you need when adjusting strategy by hand. The badge shows `+n` for the
 extra channels; the structured form is in `recallScores` on the API response.
 
@@ -98,22 +98,23 @@ down" stays distinguishable from "the model scored this 0". Start
 [rank-engine](https://github.com/open-rec/rank-engine) (step 8) to get real values, which render as
 `rank=0.7700`.
 
-Combine de-duplicates channels in the order i2i → embedding → hot → new, so the first channel becomes
+Combine de-duplicates channels in configured `recallTypes` order, so the first channel becomes
 an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
-standalone operation rule then selects 30% i2i, 30% embedding, 20% hot, and 20% new candidates and
-orders the selected items by score. If a channel is short, its quota is filled by the highest-scoring
+standalone operation rule allocates `item_cf_i2i`/`content_i2i`/`user_cf_u2i`/`item_seq_emb`/hot/new candidates using the
+ratios in `graph.json` and orders the selected items by score. If a channel is short, its quota is
+filled by the highest-scoring
 unused candidates, so the observed mix can differ from the target rather than returning fewer items.
 
 Fields on each item in the API response:
 
 | field | meaning |
 |---|---|
-| `score` | what the list is ordered by: `recallScore + rankScore` |
+| `score` | final ordering score after configured recall/rank fusion |
 | `recallFrom` | the channel whose score ranks it |
 | `recallScore` | score entering the rank stage; null if it never got there |
 | `rankScore` | the rank engine's contribution; null if ranking did not run |
 | `recallScores` | every channel that recalled it → that channel's score |
-| `meta` | the same breakdown as one line, e.g. `recall=i2i:0.0959,hot:0.5833; rank=-` |
+| `meta` | the same breakdown as one line, e.g. `recall=content_i2i:0.0959,hot:0.5833; rank=-` |
 
 The last two deliberately do **not** go through `/api/recommend`. The DAG in `graph.json` always runs
 every channel and merges them in `combine`; nothing in a request selects one. `RecommendReq.type`
@@ -168,7 +169,7 @@ implying otherwise.
 4. anything carrying a **NEW** badge was not in the previous result set
 
 Underneath: the clicks became members of `event:{user_0}:scene_0:click`; the next request's
-`userTrigger` node read them as triggers; `i2i` and `embedding` recalled neighbours of those items
+`userTrigger` reads them as triggers; `item_cf_i2i` and `item_seq_emb` recall neighbours of those items
 instead of the previous ones.
 
 Cross-check from outside the browser:
@@ -181,21 +182,21 @@ and in the rec-server log, `userTrigger with trigger size:N` grows as you click.
 
 Measured on the sample dataset, starting from a cold `user_0` (no clicks):
 
-| state | trigger size | i2i size | top of 猜你喜欢 |
+| state | trigger size | item_cf_i2i size | top of 猜你喜欢 |
 |---|---|---|---|
 | no clicks | 0 | 0 | `item_6689 item_5609 item_5248 …` — all from the hot table |
 | after one click on `item_2` | 1 | 26 | `item_5887 item_3209 item_7151 item_5862 item_455 item_1218 …` |
 
-Those six are exactly the top of `i2i:{item_2}:scene_0`, so the click propagated all the way from
+Those six are exactly the top of `item-cf-i2i:{item_2}:scene_0`, so the click propagated all the way from
 the sdk into the recall result.
 
 **Pick a well-connected item to see this clearly.** The effect is only visible when the clicked item
-has neighbours in the i2i table. Clicking something absent from it (`item_100`, for instance) still
-raises `trigger size`, but `i2i size` stays 0 and the page changes only through the exposure filter.
+has neighbours in the `item_cf_i2i` table. Clicking something absent from it (`item_100`, for instance) still
+raises `trigger size`, but `item_cf_i2i size` stays 0 and the page changes only through the exposure filter.
 Check first:
 
 ```shell
-redis-cli ZCARD 'i2i:{item_2}:scene_0'
+redis-cli ZCARD 'item-cf-i2i:{item_2}:scene_0'
 ```
 
 ## repeatability
@@ -236,11 +237,11 @@ curl 'http://localhost:12345/api/state?userId=user_0&scene=scene_0'
 
 **Quoted ids.** Recall tables were written with `GenericJackson2JsonRedisSerializer`, so a sorted-set
 member is literally `"item_1069"` — quotes included. rec-server's multi-key
-`RedisService.getZSet(List, ...)` does not strip them either, so ids from the i2i channel arrive
+`RedisService.getZSet(List, ...)` does not strip them either, so IDs from `item_cf_i2i` arrive
 quoted too (the single-key overload does strip them). `support/Ids.unquote` handles both; without it
 `item:{"item_1069"}` misses in Redis and cards render blank.
 
-**Cold start on 相关推荐.** The `embedding` node has `timeout: 100` (ms) in `graph.json`, while the
+**Cold start on 相关推荐.** The `item_seq_emb` node has `timeout: 100` (ms) in `graph.json`, while the
 first request after a restart pays for the TLS handshake to Elasticsearch — measured at ~650ms. The
 engine cancels the node, the interrupt is swallowed, and that channel contributes nothing until
 roughly the third request. Raise the timeout in `graph.json` if you want it warm immediately.

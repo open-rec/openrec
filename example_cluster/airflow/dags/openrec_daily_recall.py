@@ -14,9 +14,19 @@ RUNNER = "http://rec-algorithm-runner:8090"
 REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
-    "schedule": "0 2 * * *", "algorithms": ["hot", "new", "i2i", "embedding"],
+    "schedule": "0 2 * * *",
+    "algorithms": ["hot", "new", "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
+}
+SERVING_TABLES = {
+    "hot": "hot", "new": "new", "item_cf_i2i": "item-cf-i2i",
+    "content_i2i": "content-i2i", "user_cf_u2i": "user-cf-u2i",
+}
+RECALL_TYPES = {
+    "hot": "hot", "new": "new", "item_cf_i2i": "item_cf_i2i",
+    "content_i2i": "content_i2i", "user_cf_u2i": "user_cf_u2i",
+    "item_seq_emb": "item_seq_emb",
 }
 CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_recall.json")
 try:
@@ -82,9 +92,10 @@ def openrec_daily_recall():
     @task
     def verify_aliases_and_online_recall(business_date, revision, algorithms):
         version = business_date.replace("-", "")
-        for algorithm in (item for item in algorithms if item != "embedding"):
-            expected = "openrec-recall-%s-%s-%s" % (algorithm, version, revision)
-            release = _request("%s/api/recall/releases/%s" % (REC_CONSOLE, algorithm))
+        for algorithm in (item for item in algorithms if item != "item_seq_emb"):
+            serving_table = SERVING_TABLES[algorithm]
+            expected = "openrec-recall-%s-%s-%s" % (serving_table, version, revision)
+            release = _request("%s/api/recall/releases/%s" % (REC_CONSOLE, serving_table))
             active = release.get("active_indexes") or []
             if active != [expected]:
                 raise RuntimeError("%s active indexes are %s, expected %s" %
@@ -111,7 +122,7 @@ def openrec_daily_recall():
         # NewNode intentionally applies a wall-clock freshness window. A valid
         # backfill (or future-dated acceptance fixture) may therefore publish a
         # non-empty new index without returning that channel online.
-        online_channels = set(algorithms) - {"new"}
+        online_channels = {RECALL_TYPES[item] for item in algorithms if item != "new"}
         missing = online_channels - channels
         if missing:
             raise RuntimeError("online recall misses channels %s: %s" % (sorted(missing), response))

@@ -59,7 +59,8 @@ public class ItemService {
     }
 
     /**
-     * Renders the scoring breakdown as {@code recall=i2i:0.1700,hot:1.0000; rank=0.7700}.
+     * Renders the scoring breakdown as
+     * {@code recall=item_cf_i2i:0.1700,hot:1.0000; rank=0.7700}.
      * <p>
      * A dash rather than 0 for a stage that did not run: "the rank engine is down" and "the model
      * scored this 0" call for different reactions when tuning by hand.

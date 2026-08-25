@@ -57,7 +57,8 @@ def _recall_counts():
     token = __import__("base64").b64encode(b"elastic:openrec-es-password").decode()
     counts = {}
     for name in ("openrec-recall-hot-active", "openrec-recall-new-active",
-                 "openrec-recall-i2i-active", "scene_0-item-vector-index"):
+                 "openrec-recall-item-cf-i2i-active", "openrec-recall-content-i2i-active",
+                 "openrec-recall-user-cf-u2i-active", "scene_0-item-vector-index"):
         try:
             response = _request(
                 "https://elasticsearch:9200/%s/_count" % name,

@@ -154,22 +154,25 @@ read -r smoke_user smoke_item < <(python3 - "${WORKSPACE}" <<'PY'
 import csv, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 left = {row["left_item"] for row in csv.DictReader(
-    (root / "model/recall/i2i.csv").open()) if row["scene"] == "scene_0"}
+    (root / "model/recall/item_cf_i2i.csv").open()) if row["scene"] == "scene_0"}
+user_cf = {row["user"] for row in csv.DictReader(
+    (root / "model/recall/user_cf_u2i.csv").open()) if row["scene"] == "scene_0"}
 for row in csv.DictReader((root / "example/data/test/event.csv").open()):
-    if row["scene"] == "scene_0" and row["type"] == "click" and row["item_id"] in left:
+    if (row["scene"] == "scene_0" and row["type"] == "click" and
+            row["item_id"] in left and row["user_id"] in user_cf):
         print(row["user_id"], row["item_id"]); break
 else:
     raise SystemExit("no scene_0 click has an i2i recall table")
 PY
 )
-i2i_count="$(docker exec redis redis-cli ZCARD "i2i:{${smoke_item}}:scene_0" | tr -d '\r')"
+i2i_count="$(docker exec redis redis-cli ZCARD "item-cf-i2i:{${smoke_item}}:scene_0" | tr -d '\r')"
 [[ "${i2i_count}" =~ ^[1-9][0-9]*$ ]] || die "the default i2i trigger item has no recall data"
 docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${smoke_item}\"" | grep -Eq '[0-9]+' \
   || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
-for recall_kind in hot i2i; do
+for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
   docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
     "https://localhost:9200/_alias/openrec-recall-${recall_kind}-active" >/dev/null \
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"
@@ -192,19 +195,28 @@ for attempt in 1 2 3 4 5; do
     http://127.0.0.1:13579/api/recommend \
     -H 'Content-Type: application/json' \
     --data "{\"requestId\":\"standalone-smoke\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\"}}}")"
-  recommend_ok=true
-  for channel in i2i embedding hot; do
-    if ! grep -Fq "\"recallFrom\":\"${channel}\"" <<<"${recommend_response}"; then
-      recommend_ok=false
-      break
-    fi
-  done
+  if python3 -c '
+import json, sys
+response = json.load(sys.stdin)
+results = (response.get("data") or {}).get("results") or []
+channels = {item.get("recallFrom") for item in results if item.get("recallFrom")}
+for item in results:
+    channels.update((item.get("recallScores") or {}).keys())
+required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "hot"}
+missing = required - channels
+if missing:
+    raise SystemExit("missing channels: %s" % ",".join(sorted(missing)))
+' <<<"${recommend_response}"; then
+    recommend_ok=true
+  else
+    recommend_ok=false
+  fi
   [[ "${recommend_ok}" == true ]] && break
   sleep 1
 done
 docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
 [[ "${recommend_ok}" == true ]] \
-  || die "default WeightedChannelOperationRule smoke did not allocate i2i, embedding, and hot: ${recommend_response}"
+  || die "default weighted-channel smoke missed an enabled recall channel: ${recommend_response}"
 # A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
 # logging level and asynchronous flushing can hide that line even though ranking was skipped.
 if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
@@ -214,7 +226,7 @@ if docker logs rec-server 2>&1 \
     | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
   die "standalone log contains an unexpected Rank or Kafka service call"
 fi
-note "Default weighted-channel smoke passed: i2i, embedding, and hot are present; new-item supply is user-owned; Rank and Kafka are bypassed"
+note "Default weighted-channel smoke passed: item-CF, content, UserCF, embedding, and hot are present; new-item supply is time-dependent; Rank and Kafka are bypassed"
 
 web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"

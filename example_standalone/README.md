@@ -70,7 +70,8 @@ The script requires JDK 8, starts and checks the standalone infrastructure, buil
 components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.
-The smoke request explicitly routes to the default experiment and verifies i2i, embedding, and hot
+The smoke request explicitly routes to the default experiment and verifies `item_cf_i2i`,
+`content_i2i`, `user_cf_u2i`, `item_seq_emb`, and hot
 results from its `WeightedChannelOperationRule` while bypassing Rank and Kafka. It intentionally
 does not require `new`, whose online item supply belongs to the application.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
@@ -143,9 +144,10 @@ cd ..
 ```
 
 The start script first validates `model/default.manifest.json` against the raw CSV hashes and rebuilds
-stale deployable artifacts. The loader imports users, items, events and feature snapshots into Redis. It loads hot/new/i2i into versioned Elasticsearch
-indexes behind `openrec-recall-{algorithm}-active`, and embedding vectors into the per-scene vector
-index. Development-only Redis copies of hot/new/i2i are also loaded for RecallStore parity checks,
+stale deployable artifacts. The loader imports users, items, events and feature snapshots into
+Redis. It loads hot, new, item-CF I2I, content I2I, and UserCF U2I into versioned Elasticsearch
+indexes behind `openrec-recall-{tableName}-active`, and `item_seq_emb` vectors into the per-scene vector
+index. Development-only Redis copies of those recall tables are also loaded for RecallStore parity checks,
 but the standalone rec-server uses `ElasticsearchRecallStore` by default. Direct loader invocation
 accepts optional `data_dir` and `model_dir` arguments.
 
@@ -169,7 +171,8 @@ combine result to the operation strategy without contacting `rank-engine`.
 docker compose -f rec-server/docker-compose.standalone.yml up -d --build --wait
 ```
 
-The default operation rule allocates results as 30% i2i, 30% embedding, 20% hot, and 20% new,
+The default operation rule allocates results across `item_cf_i2i`, `content_i2i`, `user_cf_u2i`,
+`item_seq_emb`, hot, and new,
 selecting the highest scores available inside those quotas. The image includes the operation plugin.
 To try the random insertion strategy instead, set `operationName` to `RandomInsertOperationRule`;
 the bundled

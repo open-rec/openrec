@@ -33,7 +33,7 @@ flowchart TB
     subgraph Offline[Daily offline recall path]
         direction TB
         Airflow[Airflow<br/>bootstrap and daily DAGs] --> Runner[rec-algorithm runner]
-        Runner -->|spark-submit| Spark[Spark cluster<br/>hot · new · i2i jobs]
+        Runner -->|spark-submit| Spark[Spark cluster<br/>six recall jobs]
         Spark -->|prepare and activate| Console[rec-console]
     end
 
@@ -61,7 +61,7 @@ sequenceDiagram
     participant E as Elasticsearch
     participant O as rec-server
 
-    A->>R: Submit daily hot, new, or i2i job
+    A->>R: Submit one configured daily recall job
     R->>S: spark-submit with business date and revision
     S->>C: Prepare versioned staging index
     C->>E: Create mapping and physical index
@@ -131,7 +131,8 @@ The startup-triggered `openrec_cluster_bootstrap` DAG verifies:
 The same DAG directory also defines `openrec_daily_recall` for `02:00 UTC` and the manual
 `openrec_recall_rollback` DAG. New DAGs are paused by default, so enable `openrec_daily_recall` in
 Airflow when daily publication should begin. Bootstrap does not run the daily recall job: daily
-jobs read partitioned Hive data, submit hot/new/i2i Spark computations through
+jobs read partitioned Hive data and submit hot/new/`item_cf_i2i`/`content_i2i`/`user_cf_u2i`/
+`item_seq_emb` Spark computations through
 `rec-algorithm-runner`, and ask `rec-console` to validate and atomically activate the resulting
 Elasticsearch indexes.
 
@@ -151,7 +152,7 @@ normal startup:
 
 It writes deterministic item/event data through the real Push API, waits for the Hive ODS
 partitions, triggers Airflow with an explicit business date and revision, and requires non-empty
-hot/i2i indexes, exact active aliases, and an online recommendation containing the required recall
+hot/`item_cf_i2i` indexes, exact active aliases, and an online recommendation containing the required recall
 channels. The check does not require `new`; applications own the online supply of newly published
 items.
 

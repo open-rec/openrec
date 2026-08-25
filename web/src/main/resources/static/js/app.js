@@ -207,15 +207,17 @@
 
   /** colour per recall channel, so a glance at the grid shows the mix */
   var CHANNEL_CLASS = {
-    i2i: 'badge-i2i',
-    embedding: 'badge-embedding',
+    item_cf_i2i: 'badge-i2i',
+    content_i2i: 'badge-i2i',
+    user_cf_u2i: 'badge-i2i',
+    item_seq_emb: 'badge-embedding',
     hot: 'badge-hot',
     new: 'badge-fresh'
   };
 
   /**
    * score is what the list is ordered by; meta carries the breakdown behind it, e.g.
-   * "recall=i2i:0.1700,hot:1.0000; rank=0.7700". An item recalled by several channels lists all of
+   * "recall=item_cf_i2i:0.1700,hot:1.0000; rank=0.7700". Multi-channel items list all of
    * them, because whether channels agree is exactly what you need when tuning the strategy. A dash
    * marks a stage that did not run, as opposed to one that scored 0.
    */
@@ -274,8 +276,7 @@
 
     node.innerHTML =
       badges +
-      '<div class="card-title">' + escapeHtml(item.title || item.id) + '</div>' +
-      '<div class="card-id">' + escapeHtml(item.id) + '</div>' +
+      '<div class="card-title">' + escapeHtml(item.id) + '</div>' +
       fields +
       scoreBreakdown(item) +
       '<div class="card-actions">' +

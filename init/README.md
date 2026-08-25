@@ -69,10 +69,12 @@ model/
 │   ├── user_feature.csv
 │   └── item_feature.csv
 └── recall/
-    ├── i2i.csv       scene,left_item,right_item,score
-    ├── hot.csv       scene,item,score
-    ├── new.csv       scene,item,score
-    └── embedding.csv scene,item,vector
+    ├── item_cf_i2i.csv  scene,left_item,right_item,score
+    ├── content_i2i.csv  scene,left_item,right_item,score
+    ├── user_cf_u2i.csv  scene,user,item,score
+    ├── hot.csv          scene,item,score
+    ├── new.csv          scene,item,score
+    └── item_seq_emb.csv scene,item,vector
 ```
 
 Headers must match because columns are read by name. The startup scripts validate the model bundle
@@ -88,12 +90,16 @@ loader.
 | `event.csv` | `event:{userId}:{scene}:{type}` | sorted set, score = event time |
 | `feature/default/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
 | `feature/default/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
-| `recall/i2i.csv` | `i2i:{leftItem}:{scene}` | sorted set |
+| `recall/item_cf_i2i.csv` | `item-cf-i2i:{leftItem}:{scene}` | sorted set |
+| `recall/content_i2i.csv` | `content-i2i:{leftItem}:{scene}` | sorted set |
+| `recall/user_cf_u2i.csv` | `user-cf-u2i:{userId}:{scene}` | sorted set |
 | `recall/hot.csv` | `hot:{scene}` | sorted set |
 | `recall/new.csv` | `new:{scene}` | sorted set, score = normalized score × load-time Unix timestamp |
-| `recall/embedding.csv` | `{scene}-item-vector-index` | Elasticsearch, `dense_vector` (10 dims) |
+| `recall/item_seq_emb.csv` | `{scene}-item-vector-index` | Elasticsearch, `dense_vector` (10 dims) |
 
-The vector indexes are **dropped and recreated** on every run; Redis keys are overwritten in place, so
+The same recall CSVs are also loaded into versioned Elasticsearch indexes behind their
+`openrec-recall-{tableName}-active` aliases. The vector indexes are **dropped and recreated** on
+every run; Redis keys are overwritten in place, so
 stale keys from a previous dataset survive. Flush Redis if you switch datasets.
 
 `new.csv` supplies a normalized freshness score in `[0, 1]`. The loader projects it onto the Unix
@@ -119,4 +125,4 @@ curl -k -u elastic:openrec-es-password 'https://localhost:9200/_cat/indices/*vec
 
 - **It logs almost nothing on success.** There is no `log4j2.xml`, so Log4j2 defaults to root level ERROR and the per-table "finished" messages are discarded. Verify by querying Redis/ES, not by reading the output.
 - Elasticsearch 8 requires `https` and credentials; self-signed certificates are trusted deliberately (`EsUtil` uses an unsafe trust manager) since this is a local bootstrap tool.
-- The loader writes row by row without pipelining. Fine for the sample data; expect it to be slow on the full Douban i2i table (~1M rows).
+- The loader writes row by row without pipelining. Fine for the sample data; expect it to be slow on the full Douban `item_cf_i2i` table (~1M rows).

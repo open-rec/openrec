@@ -262,7 +262,7 @@ note "Loading sample serving data"
 note "Verifying loaded cluster serving data"
 docker exec redis redis-cli EXISTS 'user:{user_0}' | grep -qx 1 \
   || die "sample user was not loaded into Redis"
-for recall_kind in hot i2i; do
+for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
   wait_for_es_documents "${recall_kind} recall alias" \
     "openrec-recall-${recall_kind}-active"
 done
