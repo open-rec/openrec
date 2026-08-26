@@ -188,13 +188,36 @@ note "rec-console is ready: http://127.0.0.1:8095"
 note "Verifying the complete standalone recommendation chain"
 recommend_response=""
 recommend_ok=false
-for attempt in 1 2 3 4 5; do
-  # A previous smoke request must not affect this attempt through the expose filter.
-  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
-  recommend_response="$(curl --noproxy '*' -fsS -X POST \
+recommend() {
+  local request_id="$1"
+  curl --noproxy '*' -fsS -X POST \
     http://127.0.0.1:13579/api/recommend \
     -H 'Content-Type: application/json' \
-    --data "{\"requestId\":\"standalone-smoke\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\"}}}")"
+    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\"}}}"
+}
+
+# The health endpoint does not initialize rec-server's Elasticsearch TLS connection or search
+# client. On a constrained CI runner those first requests can exceed the normal online node
+# deadlines and leave the timeout pool busy briefly. Warm the complete graph before asserting its
+# latency-sensitive output, just as the cluster bootstrap does.
+for attempt in 1 2 3 4 5; do
+  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
+  recommend_response="$(recommend "standalone-warmup-${attempt}")"
+  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
+  if python3 -c '
+import json, sys
+results = (json.load(sys.stdin).get("data") or {}).get("results") or []
+raise SystemExit(0 if results else 1)
+' <<<"${recommend_response}"; then
+    break
+  fi
+  sleep 2
+done
+
+for attempt in 1 2 3 4 5 6; do
+  # A previous smoke request must not affect this attempt through the expose filter.
+  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
+  recommend_response="$(recommend "standalone-smoke-${attempt}")"
   if python3 -c '
 import json, sys
 response = json.load(sys.stdin)
@@ -212,7 +235,8 @@ if missing:
     recommend_ok=false
   fi
   [[ "${recommend_ok}" == true ]] && break
-  sleep 1
+  # Let timed-out cold searches leave the graph executor before starting another assertion.
+  sleep 10
 done
 docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
 [[ "${recommend_ok}" == true ]] \

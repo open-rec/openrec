@@ -161,6 +161,15 @@ def openrec_cluster_bootstrap():
         if not data.get("results"):
             raise RuntimeError("recommendation returned no candidates: %s; recall counts: %s"
                                % (response, _recall_counts()))
+        channels = {result.get("recallFrom") for result in data["results"]
+                    if result.get("recallFrom")}
+        for result in data["results"]:
+            channels.update((result.get("recallScores") or {}).keys())
+        required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "hot"}
+        missing = required - channels
+        if missing:
+            raise RuntimeError("recommendation misses enabled channels %s: %s; recall counts: %s"
+                               % (sorted(missing), response, _recall_counts()))
         unranked = [result.get("id") for result in data["results"]
                     if result.get("rankScore") is None]
         if unranked:
