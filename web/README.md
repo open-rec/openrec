@@ -1,4 +1,4 @@
-# web
+# OpenRec Web Demo
 
 A visual demo of open-rec. Browse items across four recall tabs, feed behaviour back through
 `rec-client`, and watch the recommendations change on the next load.
@@ -24,14 +24,6 @@ Full setup: [example_standalone](../example_standalone).
 
 For the shortest path, run `../example_standalone/start.sh` from this directory. It initializes the
 whole recommendation chain and starts this demo last on port 12345.
-
-> **This demo depends on three rec-server fixes.** Build rec-server from a tree that has them:
->
-> - `PushRedisService` built its event key from a template with two placeholders while passing three arguments, so the userId was dropped and events landed in `event:scene_0:click:{}` instead of `event:{user_0}:scene_0:click`. Feedback returned HTTP 200 but no recall channel could read it, so recommendations never changed.
-> - `RedisService.getZSet(List, …)` did not strip the JSON quotes its members are stored with, while the single-key overload did. IDs from `item_cf_i2i` therefore arrived as `"item_5887"` and never matched the unquoted exposure set — **exposure filtering silently did nothing for that channel**.
-> - `CombineNode` never incremented its loop counter, so the configured `size` had no effect, and it did not de-duplicate across channels, so one item could occupy several slots and reach the client more than once.
->
-> If results look frozen, or the same item keeps coming back after being shown, check those first.
 
 ## build and run
 

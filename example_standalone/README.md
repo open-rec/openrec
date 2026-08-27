@@ -1,4 +1,4 @@
-# example standalone
+# OpenRec Standalone Example
 
 Run the minimum OpenRec recommendation chain on one machine. Redis and Elasticsearch come from the
 sibling `bigdata-platform` repository; the containerized `rec-server` runs with its `standalone`

@@ -1,4 +1,7 @@
-# init
+# OpenRec Example Data Loader
+
+This bootstrap utility loads deterministic example data and generated artifacts. It is intended for
+development and acceptance testing, not as a production ingestion path.
 
 Loads a CSV dataset into a running Redis + Elasticsearch so `rec-server` has something to recommend.
 This is the bootstrap step of

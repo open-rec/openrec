@@ -1,4 +1,9 @@
-# example cluster
+# OpenRec Cluster Example
+
+This is a distributed integration and production reference architecture, not a production-ready HA
+deployment. The default topology exposes development credentials and includes single points of
+failure; isolate it from untrusted networks and review the security, persistence, backup, and
+capacity requirements of every dependency before using real data.
 
 This example is the composition root for the complete distributed OpenRec recommendation chain.
 It combines infrastructure from `bigdata-platform`, service-owned containers from `rec-server`,

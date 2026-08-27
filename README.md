@@ -13,6 +13,10 @@ provides a reproducible sample dataset and Web Demo, and owns cross-repository e
 [Architecture](docs/architecture.md) · [Versioning](docs/versioning.md) ·
 [Releasing](docs/releasing.md) · [Organization overview](https://github.com/open-rec)
 
+> The current manifest is a development distribution. Use immutable component refs and a tagged
+> release for reproducible deployments; the supplied cluster Compose is an integration/reference
+> topology and requires security and HA work before production use.
+
 ## What this repository guarantees
 
 - `release/openrec.json` records the exact component refs composing this distribution.
@@ -91,7 +95,7 @@ Review the [standalone guide](example_standalone) before sharing the deployment 
 
 | Concern | Standalone | Cluster |
 |---|---|---|
-| Primary use | Evaluation, development, small-to-medium integration | Distributed, production-oriented integration |
+| Primary use | Evaluation, development, small-to-medium integration | Distributed integration and production reference architecture |
 | Ingestion | Direct Redis write | Versioned Kafka mutations |
 | Historical storage | Bundled source data | HBase and partitioned Hive/HDFS data |
 | Processing | Local loader and algorithms | Spark/Flink streaming and Spark batch jobs |
@@ -142,13 +146,14 @@ flowchart LR
 |---|---|---|---|
 | `quality.yml` | Pull request and push | GitHub-hosted | Manifest, links, generated files, shell, Python DAGs, Compose, Java build/tests |
 | `standalone-e2e.yml` | Main changes, schedule, manual | GitHub-hosted | Complete standalone startup and recommendation acceptance |
-| `cluster-e2e.yml` | Schedule and manual | Self-hosted `openrec-cluster` | Complete distributed data, recall, analytics, deletion, model lifecycle |
+| `cluster-e2e.yml` | Schedule and manual | GitHub-hosted | Complete distributed data, recall, analytics, deletion, model lifecycle |
 | `release.yml` | `v*` tag | GitHub-hosted | Version consistency, distribution archive, SHA-256 checksums, GitHub Release |
 
-Cluster CI deliberately requires a dedicated runner because running Kafka, HDFS, Hive, HBase,
-Spark, Airflow, Redis, Elasticsearch, Prometheus, Grafana, and all OpenRec applications together is
-not reliable on a standard hosted runner. Runner setup and cleanup rules are documented in
-[CI](docs/ci.md).
+Cluster CI runs on a GitHub-hosted runner with constrained JVM heaps, reduced parallelism, and an
+explicit disk-space cleanup step. It is scheduled and manually dispatchable rather than a required
+check on every pull request because it starts Kafka, HDFS, Hive, HBase, Spark, Flink, Airflow,
+Redis, Elasticsearch, monitoring, and all OpenRec applications together. Resource assumptions and
+failure diagnostics are documented in [CI](docs/ci.md).
 
 ## Versioning and releases
 
