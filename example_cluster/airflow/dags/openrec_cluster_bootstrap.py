@@ -16,6 +16,9 @@ from airflow.sdk import dag, task, task_group
 
 
 REC_SERVER = "rec-server"
+REQUIRED_RECALL_CHANNELS = {
+    "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "hot",
+}
 
 
 def _request(url, method="GET", body=None, headers=None, context=None):
@@ -112,7 +115,13 @@ def openrec_cluster_bootstrap():
 
     @task(retries=10, retry_delay=timedelta(seconds=10))
     def rank_engine_ready():
-        _request("http://rank-engine:8123/health")
+        response = _request("http://rank-engine:8123/health")
+        data = response.get("data") or {}
+        # /health deliberately returns HTTP 200 while the process is alive even when automatic
+        # model loading failed or Redis is not ready. Recommendation then silently bypasses the
+        # rank stage, so HTTP readiness alone is insufficient for the cluster acceptance path.
+        if response.get("status") != "success" or not data.get("ready"):
+            raise RuntimeError("rank-engine is alive but not ready: %s" % response)
 
     @task(retries=10, retry_delay=timedelta(seconds=10))
     def rec_server_ready():
@@ -135,7 +144,8 @@ def openrec_cluster_bootstrap():
         for attempt in range(5):
             _redis_command("DEL", exposure_key)
             try:
-                response = _recommendation_request("airflow-cluster-warmup-%d" % attempt)
+                response = _recommendation_request(
+                    "airflow-cluster-warmup-%d-%s" % (attempt, uuid.uuid4().hex))
             finally:
                 _redis_command("DEL", exposure_key)
             if (response.get("data") or response).get("results"):
@@ -150,7 +160,8 @@ def openrec_cluster_bootstrap():
         exposure_key = "event:{user_0}:scene_0:expose"
         _redis_command("DEL", exposure_key)
         try:
-            response = _recommendation_request("airflow-cluster-smoke")
+            response = _recommendation_request(
+                "airflow-cluster-smoke-%s" % uuid.uuid4().hex)
         finally:
             _redis_command("DEL", exposure_key)
         if response.get("code") != 200 or response.get("status") is not True:
@@ -165,8 +176,7 @@ def openrec_cluster_bootstrap():
                     if result.get("recallFrom")}
         for result in data["results"]:
             channels.update((result.get("recallScores") or {}).keys())
-        required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "hot"}
-        missing = required - channels
+        missing = REQUIRED_RECALL_CHANNELS - channels
         if missing:
             raise RuntimeError("recommendation misses enabled channels %s: %s; recall counts: %s"
                                % (sorted(missing), response, _recall_counts()))
