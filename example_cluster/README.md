@@ -133,13 +133,14 @@ The startup-triggered `openrec_cluster_bootstrap` DAG verifies:
 - A uniquely named user pushed to `rec-server` reaches Redis through Kafka and the Spark
   `data-processor`; unique data prevents a previous run from producing a false-positive result.
 
-The same DAG directory also defines `openrec_daily_recall` for `02:00 UTC` and the manual
-`openrec_recall_rollback` DAG. New DAGs are paused by default, so enable `openrec_daily_recall` in
-Airflow when daily publication should begin. Bootstrap does not run the daily recall job: daily
-jobs read partitioned Hive data and submit hot/new/`item_cf_i2i`/`content_i2i`/`user_cf_u2i`/
-`item_seq_emb` Spark computations through
-`rec-algorithm-runner`, and ask `rec-console` to validate and atomically activate the resulting
-Elasticsearch indexes.
+The same DAG directory defines `openrec_daily_recall` for `02:00 UTC`,
+`openrec_daily_user_recall` for `02:30 UTC`, and the manual `openrec_recall_rollback` DAG. New DAGs
+are paused by default, so enable the required daily DAGs in Airflow when publication should begin.
+Bootstrap does not run them: the item DAG submits hot/new/`item_cf_i2i`/`content_i2i`/
+`user_cf_u2i`/`item_seq_emb`, while the user DAG submits `user_cf_u2u`/`content_u2u`/
+`user_emb_u2u`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
+versioned Elasticsearch indexes, ask `rec-console` to atomically activate their aliases, and finish
+with an online recommendation check.
 
 The ODS entity tables remain immutable daily partitions, while a daily recall run reads every
 partition through its business date. Events are de-duplicated by trace/event id and retained as
@@ -162,11 +163,11 @@ channels. The check does not require `new`; applications own the online supply o
 items.
 
 The rec-console DAG module provides the operational UI for Airflow DAG status, pause/enable,
-manual triggers, DagRun and TaskInstance state, and task logs. Its structured daily-recall editor
-versions and publishes cron, ordered algorithm dependencies, default revision, retention, and retry
-settings through the shared `openrec-dag-config` volume. Airflow mounts that configuration
-read-only; the Python DAG source remains read-only and arbitrary Python editing is not exposed in
-the browser.
+manual triggers, DagRun and TaskInstance state, and task logs. Its item/user tabs maintain separate
+version histories and publish cron, ordered algorithm dependencies, default revision, retention,
+and retry settings through the shared `openrec-dag-config` volume. Airflow mounts that
+configuration read-only; the Python DAG source remains read-only and arbitrary Python editing is
+not exposed in the browser.
 
 The rec-console Serving Graph module reads the active online graph from rec-server, renders its
 node and edge topology, edits individual node settings, and publishes a complete graph snapshot.

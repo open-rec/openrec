@@ -22,6 +22,7 @@ def request(url, body=None, timeout=7200):
      params={"business_date": Param("", type="string"), "revision": Param("r001", type="string"),
              "scene": Param("scene_0", type="string"), "epochs": Param(5, type="integer", minimum=1),
              "model_type": Param("lr", type="string", enum=["lr", "fm"]),
+             "target_type": Param("item", type="string", enum=["item", "user"]),
              "factor_dim": Param(8, type="integer", minimum=1, maximum=256),
              "min_auc": Param(0.0, type="number", minimum=0, maximum=1)},
      tags=["openrec", "rank", "model"],
@@ -35,7 +36,8 @@ def rank_model():
         if not business_date:
             business_date = datetime.now(timezone.utc).date().isoformat()
         payload = {key: conf.get(key, params[key]) for key in
-                   ("revision", "scene", "epochs", "min_auc", "model_type", "factor_dim")}
+                   ("revision", "scene", "epochs", "min_auc", "model_type", "target_type",
+                    "factor_dim")}
         payload["date"] = business_date
         result = request("http://rec-algorithm-runner:8090/jobs/rank/train", payload)
         if result.get("status") != "success":
@@ -45,7 +47,8 @@ def rank_model():
     @task
     def publish(manifest):
         return request("http://rec-console:8095/api/models/releases/publish",
-                       {"scene": manifest["scene"], "version": manifest["version"]})
+                       {"scene": manifest["scene"], "version": manifest["version"],
+                        "target_type": manifest.get("target_type", "item")})
 
     @task
     def verify(release):

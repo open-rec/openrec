@@ -68,7 +68,7 @@ example/data/test/
 └── event.csv         id,user_id,item_id,trace_id,scene,type,value,time,is_login,ext_fields
 
 model/
-├── feature/default/
+├── feature/item/
 │   ├── user_feature.csv
 │   └── item_feature.csv
 └── recall/
@@ -91,8 +91,8 @@ loader.
 | `item.csv` | `item:{itemId}` | JSON string |
 | `user.csv` | `user:{userId}` | JSON string |
 | `event.csv` | `event:{userId}:{scene}:{type}` | sorted set, score = event time |
-| `feature/default/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
-| `feature/default/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
+| `feature/item/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
+| `feature/item/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
 | `recall/item_cf_i2i.csv` | `item-cf-i2i:{leftItem}:{scene}` | sorted set |
 | `recall/content_i2i.csv` | `content-i2i:{leftItem}:{scene}` | sorted set |
 | `recall/user_cf_u2i.csv` | `user-cf-u2i:{userId}:{scene}` | sorted set |

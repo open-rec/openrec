@@ -17,6 +17,7 @@ ingestion path.
 |---|---|---|
 | `openrec_cluster_bootstrap` | Manual | Check platform and application health, initialize Hive, push fixture entities, and verify online ingestion |
 | `openrec_daily_recall` | Published configuration | Run the ordered recall pipeline, write staging indexes, and request validated activation through rec-console |
+| `openrec_daily_user_recall` | Published configuration | Build and atomically activate UserCF, content, and embedding U2U recall tables |
 | `openrec_recall_rollback` | Manual | Ask rec-console to restore a retained recall-index version |
 | `openrec_rank_model` | Manual | Prepare training data, train/evaluate LR or FM, and publish an approved immutable release |
 | `openrec_rank_model_rollback` | Manual | Reactivate a retained rank-model release through rec-console and rank-engine |
