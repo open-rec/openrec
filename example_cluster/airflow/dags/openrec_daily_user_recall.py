@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
 }
 SERVING_TABLES = {
     "user_cf_u2u": "user-cf-u2u", "content_u2u": "content-u2u",
-    "user_emb_u2u": "user-emb-u2u",
+    "user_emb_u2u": "user-als-emb",
 }
 CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_user_recall.json")
 try:
