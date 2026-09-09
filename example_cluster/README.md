@@ -38,7 +38,7 @@ flowchart TB
     subgraph Offline[Daily offline recall path]
         direction TB
         Airflow[Airflow<br/>bootstrap and daily DAGs] --> Runner[rec-algorithm runner]
-        Runner -->|spark-submit| Spark[Spark cluster<br/>six recall jobs]
+        Runner -->|spark-submit| Spark[Spark cluster<br/>item and user recall jobs]
         Spark -->|prepare and activate| Console[rec-console]
     end
 
@@ -137,8 +137,9 @@ The same DAG directory defines `openrec_daily_recall` for `02:00 UTC`,
 `openrec_daily_user_recall` for `02:30 UTC`, and the manual `openrec_recall_rollback` DAG. New DAGs
 are paused by default, so enable the required daily DAGs in Airflow when publication should begin.
 Bootstrap does not run them: the item DAG submits hot/new/`item_cf_i2i`/`content_i2i`/
-`user_cf_u2i`/`item_seq_emb`, while the user DAG submits `user_cf_u2u`/`content_u2u`/
-`user_emb_u2u`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
+`user_cf_u2i`/`item_seq_emb`, while the user DAG submits `user_cf_u2u`/`content_u2u` and the
+internally named `user_emb_u2u` ALS job, which publishes the `user-als-emb` serving table consumed
+as `user_als_emb`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
 versioned Elasticsearch indexes, ask `rec-console` to atomically activate their aliases, and finish
 with an online recommendation check.
 

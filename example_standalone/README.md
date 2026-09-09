@@ -185,7 +185,7 @@ published items.
 ```shell
 curl http://127.0.0.1:13579/health
 
-curl -s -X POST http://127.0.0.1:13579/api/recommend \
+curl -s -X POST http://127.0.0.1:13579/api/recommend/item \
   -H 'Content-Type: application/json' -d '{
   "requestId": "standalone-1",
   "body": {

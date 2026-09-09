@@ -93,7 +93,7 @@ down" stays distinguishable from "the model scored this 0". Start
 Combine de-duplicates channels in configured `recallTypes` order, so the first channel becomes
 an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
 standalone operation rule allocates `item_cf_i2i`/`content_i2i`/`user_cf_u2i`/`item_seq_emb`/hot/new candidates using the
-ratios in `graph.json` and orders the selected items by score. If a channel is short, its quota is
+ratios in `item_graph.json` and orders the selected items by score. If a channel is short, its quota is
 filled by the highest-scoring
 unused candidates, so the observed mix can differ from the target rather than returning fewer items.
 
@@ -108,7 +108,7 @@ Fields on each item in the API response:
 | `recallScores` | every channel that recalled it → that channel's score |
 | `meta` | the same breakdown as one line, e.g. `recall=content_i2i:0.0959,hot:0.5833; rank=-` |
 
-The last two deliberately do **not** go through `/api/recommend`. The DAG in `graph.json` always runs
+The last two deliberately do **not** go through `/api/recommend`. The DAG in `item_graph.json` always runs
 every channel and merges them in `combine`; nothing in a request selects one. `RecommendReq.type`
 exists but no node reads it, so "hot only" is not expressible — asking anyway would return exactly
 what 猜你喜欢 returns, under a label that lies.
@@ -233,10 +233,10 @@ member is literally `"item_1069"` — quotes included. rec-server's multi-key
 quoted too (the single-key overload does strip them). `support/Ids.unquote` handles both; without it
 `item:{"item_1069"}` misses in Redis and cards render blank.
 
-**Cold start on 相关推荐.** The `item_seq_emb` node has `timeout: 100` (ms) in `graph.json`, while the
-first request after a restart pays for the TLS handshake to Elasticsearch — measured at ~650ms. The
-engine cancels the node, the interrupt is swallowed, and that channel contributes nothing until
-roughly the third request. Raise the timeout in `graph.json` if you want it warm immediately.
+**Cold start on 相关推荐.** The first `item_seq_emb` request after a restart may pay for the
+Elasticsearch TLS handshake. The packaged `item_graph.json` currently allows 300 ms; increase that
+node timeout in a published Serving Graph version if the deployment's measured cold latency is
+higher.
 
 **新品推荐 ordering.** The sample dataset's normalized freshness score is rebased at initialization
 time. It demonstrates the online time-window query but does not claim the synthetic items were
