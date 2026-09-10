@@ -7,7 +7,35 @@ DATA_DIR="${OPENREC_DATA_DIR:-${WORKSPACE}/example/data/test}"
 MODEL_ROOT="${OPENREC_MODEL_ROOT:-${WORKSPACE}/model}"
 BUILD_OUTPUT=""
 
-python3 "${WORKSPACE}/model/feature/catalog/publish_catalog.py" --check
+CATALOG_PUBLISHER="${WORKSPACE}/model/feature/catalog/publish_catalog.py"
+ALGORITHM_CATALOG="${WORKSPACE}/rec-algorithm/algorithm/feature/definitions/feature.catalog.json"
+PROCESSOR_CATALOG="${WORKSPACE}/data-processor/feature-core/src/main/resources/openrec-feature-catalog.json"
+ALGORITHM_FIXTURE="${WORKSPACE}/rec-algorithm/algorithm/feature/definitions/event-feature-parity.json"
+PROCESSOR_FIXTURE="${WORKSPACE}/data-processor/feature-core/src/test/resources/event-feature-parity.json"
+
+if [[ -f "${CATALOG_PUBLISHER}" ]]; then
+  python3 "${CATALOG_PUBLISHER}" --check
+else
+  # Distribution CI checks out only the components declared by release/openrec.json. The model
+  # repository is intentionally absent because default artifacts are generated below. In that
+  # layout, compare the two packaged copies directly so catalog drift still fails before a build.
+  for required in "${ALGORITHM_CATALOG}" "${PROCESSOR_CATALOG}" \
+      "${ALGORITHM_FIXTURE}" "${PROCESSOR_FIXTURE}"; do
+    [[ -f "${required}" ]] || {
+      echo "error: packaged feature contract is missing: ${required}" >&2
+      exit 1
+    }
+  done
+  cmp -s "${ALGORITHM_CATALOG}" "${PROCESSOR_CATALOG}" || {
+    echo "error: rec-algorithm and data-processor feature catalogs differ" >&2
+    exit 1
+  }
+  cmp -s "${ALGORITHM_FIXTURE}" "${PROCESSOR_FIXTURE}" || {
+    echo "error: rec-algorithm and data-processor parity fixtures differ" >&2
+    exit 1
+  }
+  echo "packaged feature catalog and parity fixture copies match"
+fi
 
 cleanup() {
   if [[ -n "${BUILD_OUTPUT}" && -d "${BUILD_OUTPUT}" ]]; then
