@@ -7,6 +7,8 @@ DATA_DIR="${OPENREC_DATA_DIR:-${WORKSPACE}/example/data/test}"
 MODEL_ROOT="${OPENREC_MODEL_ROOT:-${WORKSPACE}/model}"
 BUILD_OUTPUT=""
 
+python3 "${WORKSPACE}/model/feature/catalog/publish_catalog.py" --check
+
 cleanup() {
   if [[ -n "${BUILD_OUTPUT}" && -d "${BUILD_OUTPUT}" ]]; then
     rm -rf -- "${BUILD_OUTPUT}"
@@ -52,7 +54,8 @@ rsync -a "${BUILD_OUTPUT}/rank/" "${MODEL_ROOT}/rank/"
 rsync -a "${BUILD_OUTPUT}/recall/" "${MODEL_ROOT}/recall/"
 rsync -a "${BUILD_OUTPUT}/default.manifest.json" "${MODEL_ROOT}/default.manifest.json"
 
-# Build version 6 colocates fitted spaces and snapshots with their rank checkpoints. Remove only
+# Build version 7 also binds every fitted space and model manifest to the canonical catalog hash.
+# Remove only
 # the two retired generated directories; feature/catalog is reviewed source metadata and remains.
 for retired in "${MODEL_ROOT}/feature/item" "${MODEL_ROOT}/feature/user"; do
   if [[ -d "${retired}" ]]; then
