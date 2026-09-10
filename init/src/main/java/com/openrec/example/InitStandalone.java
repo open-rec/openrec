@@ -96,7 +96,7 @@ public class InitStandalone {
     private static void useModelDir(String modelDir) {
         String absolute = Paths.get(modelDir).isAbsolute() ? modelDir
                 : System.getProperty("user.dir") + "/" + modelDir;
-        featureDataDir = absolute + "/feature/item";
+        featureDataDir = absolute + "/rank/item";
         String recallDataDir = absolute + "/recall";
         testRecallI2iData = recallDataDir + "/item_cf_i2i.csv";
         testRecallContentI2iData = recallDataDir + "/content_i2i.csv";

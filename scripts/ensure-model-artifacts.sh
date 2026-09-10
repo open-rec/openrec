@@ -47,11 +47,18 @@ PYTHONPATH="${WORKSPACE}/rec-algorithm" python3 \
   "${WORKSPACE}/rec-algorithm/tool/check_default_artifacts.py" \
   --data "${DATA_DIR}" --model-root "${BUILD_OUTPUT}"
 
-mkdir -p "${MODEL_ROOT}/feature" "${MODEL_ROOT}/rank" "${MODEL_ROOT}/recall"
-rsync -a "${BUILD_OUTPUT}/feature/" "${MODEL_ROOT}/feature/"
+mkdir -p "${MODEL_ROOT}/rank" "${MODEL_ROOT}/recall"
 rsync -a "${BUILD_OUTPUT}/rank/" "${MODEL_ROOT}/rank/"
 rsync -a "${BUILD_OUTPUT}/recall/" "${MODEL_ROOT}/recall/"
 rsync -a "${BUILD_OUTPUT}/default.manifest.json" "${MODEL_ROOT}/default.manifest.json"
+
+# Build version 6 colocates fitted spaces and snapshots with their rank checkpoints. Remove only
+# the two retired generated directories; feature/catalog is reviewed source metadata and remains.
+for retired in "${MODEL_ROOT}/feature/item" "${MODEL_ROOT}/feature/user"; do
+  if [[ -d "${retired}" ]]; then
+    rm -rf -- "${retired}"
+  fi
+done
 
 PYTHONPATH="${WORKSPACE}/rec-algorithm" python3 \
   "${WORKSPACE}/rec-algorithm/tool/check_default_artifacts.py" \
