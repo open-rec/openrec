@@ -271,6 +271,8 @@ wait_for_es_documents "embedding recall index" "scene_0-item-vector-index"
 note "Building and starting rec-server, rank-engine, rec-algorithm runner, and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
 
+"${SCRIPT_DIR}/verify_feature_parity_e2e.sh"
+
 run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%M%SZ)"
 
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"

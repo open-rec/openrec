@@ -21,7 +21,8 @@ EPOCH="$(date -u +%s)" PREFIX="${PREFIX}" python3 - "${TMP_DIR}" <<'PY'
 import json, os, pathlib, sys
 root, prefix, now = pathlib.Path(sys.argv[1]), os.environ["PREFIX"], int(os.environ["EPOCH"])
 # Entity envelopes are timestamped when Push API processes them. Keep labels safely later so the
-# strictly-prior feature cutoff includes the freshly inserted users/items but never the labels.
+# Label times follow entity mutations; per-sample PIT joins include the profiles but never a label
+# event in its own behaviour features.
 label_start = now + 120
 users = [{"id": f"{prefix}_u{i}", "deviceId": f"d{i}", "name": f"Rank User {i}",
           "gender": "male" if i % 2 == 0 else "female", "age": 20 + i,
@@ -108,7 +109,9 @@ assert found[sys.argv[2]]["model_type"]=="fm",found
 assert found[sys.argv[1]]["feature_set"]=="ranking-lr-v1",found
 assert found[sys.argv[2]]["feature_set"]=="ranking-fm-v1",found
 assert all(r.get("catalog_version")==2 and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
+assert all(r.get("label_observation_cutoff") and r.get("feature_join")=="per_sample_point_in_time" for r in found.values()),found
 assert all(r.get("metrics",{}).get("samples",0)>0 for r in found.values()),found
+assert all(r.get("metrics",{}).get("training_samples",0)>0 and r.get("metrics",{}).get("validation_samples",0)>0 for r in found.values()),found
 assert all(0<r["metrics"].get("positive_rate",0)<1 for r in found.values()),found
 assert all(r["metrics"].get("auc") is not None for r in found.values()),found
 ' "${VERSION_ONE}" "${VERSION_TWO}" <<<"${listing}" || die "model publish verification failed"

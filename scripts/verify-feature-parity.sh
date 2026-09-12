@@ -44,7 +44,7 @@ fi
 (
   cd "${WORKSPACE}/data-processor"
   mvn -pl flink,spark -am test \
-    -Dtest=EventFeatureAccumulatorTest,FlinkFeatureParityTest,SparkFeatureParityTest \
+    -Dtest=EventFeatureAccumulatorTest,FlinkFeatureParityTest,FlinkFeatureOperatorStateTest,SparkFeatureParityTest,SparkFeatureMicroBatchTest \
     -Dsurefire.failIfNoSpecifiedTests=false
 )
 

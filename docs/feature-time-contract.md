@@ -14,6 +14,12 @@ This contract applies to the version-1 Kafka mutation envelope and feature catal
   label: profile state is selected at `label.time`, and behaviour requires both its latest visible
   mutation at that time and `event.time < label.time`. A later UPDATE or DELETE must not rewrite an
   earlier sample, and a label event cannot enter its own features.
+- Daily label membership is resolved at the immutable UTC business-day end
+  `label_observation_cutoff`. Mutations arriving after that boundary cannot retrospectively add,
+  update, or retract labels. Model manifests record this cutoff and label/materialization counts.
+- Spark owns distributed profile as-of joins and behaviour range aggregation and writes one aligned
+  user/candidate feature row per label. Rank-engine fits encoders only on the training time slice;
+  validation rows never contribute vocabularies, means, scales, or missing-value statistics.
 - Window boundaries are `[as_of - window, as_of]`. Online serving re-materializes recency and
   window counts at feature-refresh time from the event-time histogram in the snapshot.
 
@@ -32,8 +38,10 @@ from realtime aggregate state. An older INSERT or UPDATE cannot resurrect it.
 ## Parity gate
 
 `example/scripts/verify-feature-parity.sh` validates the catalog copies and replays the canonical
-event fixture through Python, Flink, and Spark adapters. Any difference in identity, window
-boundaries, counts, recency, or top-category output fails the gate.
+user/item fixture through Python, a real Flink keyed-state harness, and a Spark typed batch. Any
+difference in identity, window boundaries, counts, recency, or category output fails the gate.
+Cluster startup additionally publishes the fixture through Kafka and compares Redis snapshots with
+the same golden result.
 
 ## Compatibility
 
