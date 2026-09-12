@@ -107,7 +107,7 @@ assert found[sys.argv[1]]["model_type"]=="lr",found
 assert found[sys.argv[2]]["model_type"]=="fm",found
 assert found[sys.argv[1]]["feature_set"]=="ranking-lr-v1",found
 assert found[sys.argv[2]]["feature_set"]=="ranking-fm-v1",found
-assert all(r.get("catalog_version")==1 and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
+assert all(r.get("catalog_version")==2 and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
 assert all(r.get("metrics",{}).get("samples",0)>0 for r in found.values()),found
 assert all(0<r["metrics"].get("positive_rate",0)<1 for r in found.values()),found
 assert all(r["metrics"].get("auc") is not None for r in found.values()),found

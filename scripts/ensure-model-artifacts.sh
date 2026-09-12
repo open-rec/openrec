@@ -62,6 +62,13 @@ fi
 # publishes the validated files as its own user.
 BUILD_OUTPUT="$(mktemp -d "${WORKSPACE}/.openrec-model-build.XXXXXX")"
 chmod 0777 "${BUILD_OUTPUT}"
+# Seed only the prior manifest and recall tables. The builder verifies their raw-input hashes before
+# reuse, while rank artifacts are always rebuilt when the feature catalog is stale.
+if [[ -f "${MODEL_ROOT}/default.manifest.json" && -d "${MODEL_ROOT}/recall" ]]; then
+  mkdir -p "${BUILD_OUTPUT}/recall"
+  rsync -a "${MODEL_ROOT}/default.manifest.json" "${BUILD_OUTPUT}/default.manifest.json"
+  rsync -a "${MODEL_ROOT}/recall/" "${BUILD_OUTPUT}/recall/"
+fi
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint python \
   -e PYTHONPATH=/openrec-algorithm \
   -v "${WORKSPACE}/rec-algorithm:/openrec-algorithm:ro" \
@@ -82,7 +89,8 @@ rsync -a "${BUILD_OUTPUT}/rank/" "${MODEL_ROOT}/rank/"
 rsync -a "${BUILD_OUTPUT}/recall/" "${MODEL_ROOT}/recall/"
 rsync -a "${BUILD_OUTPUT}/default.manifest.json" "${MODEL_ROOT}/default.manifest.json"
 
-# Build version 7 also binds every fitted space and model manifest to the canonical catalog hash.
+# Build version 9 binds the bundle manifest, every fitted space, and every model manifest to the
+# canonical catalog hash. Catalog-only rebuilds preserve validated recall outputs.
 # Remove only
 # the two retired generated directories; feature/catalog is reviewed source metadata and remains.
 for retired in "${MODEL_ROOT}/feature/item" "${MODEL_ROOT}/feature/user"; do
