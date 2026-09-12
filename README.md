@@ -144,7 +144,7 @@ flowchart LR
 
 | Workflow | Trigger | Runner | Coverage |
 |---|---|---|---|
-| `quality.yml` | Pull request and push | GitHub-hosted | Manifest, links, generated files, shell, Python DAGs, Compose, Java build/tests |
+| `quality.yml` | Pull request and push | GitHub-hosted | Manifest, links, generated files, shell, Python DAGs, Compose, Java build/tests, Python/Flink/Spark feature parity |
 | `standalone-e2e.yml` | Main changes, schedule, manual | GitHub-hosted | Complete standalone startup and recommendation acceptance |
 | `cluster-e2e.yml` | Schedule and manual | GitHub-hosted | Complete distributed data, recall, analytics, deletion, model lifecycle |
 | `release.yml` | `v*` tag | GitHub-hosted | Version consistency, distribution archive, SHA-256 checksums, GitHub Release |

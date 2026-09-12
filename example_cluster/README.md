@@ -133,6 +133,18 @@ The startup-triggered `openrec_cluster_bootstrap` DAG verifies:
 - A uniquely named user pushed to `rec-server` reaches Redis through Kafka and the Spark
   `data-processor`; unique data prevents a previous run from producing a false-positive result.
 
+Run the feature golden comparison after the streaming processor is healthy:
+
+```shell
+bash example/example_cluster/verify_feature_parity_e2e.sh
+```
+
+This publishes the shared fixture directly to the Kafka `event` topic with deterministic mutation
+envelopes and one ordering key per user, then compares Redis user and item snapshots with the
+Python golden output. Direct Kafka publication deliberately preserves `occurredAt`, including the
+fixture's out-of-order DELETE/INSERT pair; going through the Push API would replace it with request
+arrival time and would not exercise mutation ordering.
+
 The same DAG directory defines `openrec_daily_recall` for `02:00 UTC`,
 `openrec_daily_user_recall` for `02:30 UTC`, and the manual `openrec_recall_rollback` DAG. New DAGs
 are paused by default, so enable the required daily DAGs in Airflow when publication should begin.
