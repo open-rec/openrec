@@ -13,35 +13,32 @@ docker inspect -f '{{.State.Running}}' redis 2>/dev/null | grep -qx true || {
   exit 1
 }
 
-python3 - "${FIXTURE}" "${TMP_DIR}/requests.jsonl" "${TMP_DIR}/expected.json" "${PREFIX}" <<'PY'
+python3 - "${FIXTURE}" "${TMP_DIR}/mutations.jsonl" "${TMP_DIR}/expected.json" "${PREFIX}" <<'PY'
 import json, pathlib, sys
 fixture=json.loads(pathlib.Path(sys.argv[1]).read_text()); prefix=sys.argv[4]
-requests=[]; inserts=[]
+mutations=[]
 for i,event in enumerate(fixture["events"]):
     value=dict(event)
     if value["time"] == "invalid" or int(value["time"]) > fixture["as_of_time"]: continue
     event_id=value.pop("event_id", f"{value['trace_id']}_{value['type']}_{value['time']}")
     operation=value.pop("operation", "INSERT")
-    value.pop("occurred_at", None)
+    occurred_at=value.pop("occurred_at", i + 1)
     value.update(eventId=f"{prefix}_{event_id}",
                  userId=f"{prefix}_{value.pop('user_id')}",
                  itemId=f"{prefix}_{value.pop('item_id')}", traceId=value.pop("trace_id"),
                  extFields={})
-    if operation == "INSERT" and "event_id" not in event: inserts.append(value)
-    else: requests.append({"requestId":f"{prefix}-{i}","body":{"cmd":operation,"data":[value]}})
-requests.sort(key=lambda request: request["body"]["cmd"] == "DELETE")
-requests.insert(0, {"requestId":prefix,"body":{"cmd":"INSERT","data":inserts}})
-pathlib.Path(sys.argv[2]).write_text("\n".join(map(json.dumps, requests)))
+    envelope={"schemaVersion":1,"entityType":"event","operation":operation,
+              "occurredAt":occurred_at,"data":value}
+    mutations.append(f"{value['userId']}\t{json.dumps(envelope, separators=(',', ':'))}")
+pathlib.Path(sys.argv[2]).write_text("\n".join(mutations) + "\n")
 expected={f"feature:user:{{{prefix}_u1}}": fixture["expected_user"]}
 expected.update({f"feature:item:{{{prefix}_{key}}}": value
                  for key,value in fixture["expected_items"].items()})
 pathlib.Path(sys.argv[3]).write_text(json.dumps(expected))
 PY
 
-while IFS= read -r request; do
-  curl --noproxy '*' -fsS -H 'Content-Type: application/json' \
-    --data-binary "${request}" http://127.0.0.1:13579/api/push/event >/dev/null
-done < "${TMP_DIR}/requests.jsonl"
+docker exec -i kafka-1 kafka-console-producer.sh --bootstrap-server kafka-1:9092 --topic event \
+  --property parse.key=true --property key.separator=$'\t' < "${TMP_DIR}/mutations.jsonl"
 
 for attempt in {1..60}; do
   ready=true
