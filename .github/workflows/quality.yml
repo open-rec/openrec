@@ -32,8 +32,18 @@ jobs:
       - name: Check out manifest components
         working-directory: openrec/example
         env:
-          OPENREC_COMPONENTS: rec-server sdk rec-console rank-engine rec-algorithm
+          OPENREC_COMPONENTS: rec-server sdk rec-console rank-engine rec-algorithm data-processor model
         run: ./scripts/checkout-components.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install feature parity test dependencies
+        working-directory: openrec/rec-algorithm
+        run: pip install pandas numpy pytest
 
       - name: Validate distribution policy and deployment definitions
         working-directory: openrec/example
@@ -42,3 +52,7 @@ jobs:
       - name: Build and test Java compatibility chain
         working-directory: openrec/example
         run: ./scripts/build-components.sh
+
+      - name: Verify Python, Flink, and Spark feature parity
+        working-directory: openrec/example
+        run: ./scripts/verify-feature-parity.sh
