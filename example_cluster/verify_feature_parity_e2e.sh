@@ -14,15 +14,21 @@ docker inspect -f '{{.State.Running}}' redis 2>/dev/null | grep -qx true || {
 }
 
 python3 - "${FIXTURE}" "${TMP_DIR}/mutations.jsonl" "${TMP_DIR}/expected.json" "${PREFIX}" <<'PY'
-import json, pathlib, sys
+import json, pathlib, sys, time
 fixture=json.loads(pathlib.Path(sys.argv[1]).read_text()); prefix=sys.argv[4]
+# Keep the fixture's newest accepted event slightly ahead of wall clock for the duration of this
+# test. EventFeatureAccumulator.currentSnapshot uses max(last event time, wall clock); the cushion
+# preserves exact inclusive 1/7/30-day boundary expectations even on a slow CI runner.
+event_shift=int(time.time()) + 300 - fixture["as_of_time"]
+mutation_base=int(time.time() * 1000)
 mutations=[]
 for i,event in enumerate(fixture["events"]):
     value=dict(event)
     if value["time"] == "invalid" or int(value["time"]) > fixture["as_of_time"]: continue
     event_id=value.pop("event_id", f"{value['trace_id']}_{value['type']}_{value['time']}")
     operation=value.pop("operation", "INSERT")
-    occurred_at=value.pop("occurred_at", i + 1)
+    occurred_at=mutation_base + value.pop("occurred_at", i + 1)
+    value["time"]=str(int(value["time"]) + event_shift)
     value.update(eventId=f"{prefix}_{event_id}",
                  userId=f"{prefix}_{value.pop('user_id')}",
                  itemId=f"{prefix}_{value.pop('item_id')}", traceId=value.pop("trace_id"),
@@ -31,8 +37,13 @@ for i,event in enumerate(fixture["events"]):
               "occurredAt":occurred_at,"data":value}
     mutations.append(f"{value['userId']}\t{json.dumps(envelope, separators=(',', ':'))}")
 pathlib.Path(sys.argv[2]).write_text("\n".join(mutations) + "\n")
-expected={f"feature:user:{{{prefix}_u1}}": fixture["expected_user"]}
-expected.update({f"feature:item:{{{prefix}_{key}}}": value
+def shifted(values):
+    result=dict(values)
+    result["event_first_time"] += event_shift
+    result["event_last_time"] += event_shift
+    return result
+expected={f"feature:user:{{{prefix}_u1}}": shifted(fixture["expected_user"])}
+expected.update({f"feature:item:{{{prefix}_{key}}}": shifted(value)
                  for key,value in fixture["expected_items"].items()})
 pathlib.Path(sys.argv[3]).write_text(json.dumps(expected))
 PY
@@ -55,8 +66,10 @@ import json, subprocess, sys
 expected=json.load(open(sys.argv[1]))
 for key, values in expected.items():
     raw=subprocess.check_output(["docker","exec","redis","redis-cli","--raw","GET",key])
-    actual=json.loads(raw)["features"]
+    snapshot=json.loads(raw); actual=snapshot["features"]
     for name,value in values.items():
+        if name == "event_recency_seconds":
+            value=max(0, snapshot["asOfTime"] - values["event_last_time"])
         assert actual.get(name) == value, (key,name,value,actual.get(name))
 print("Kafka -> data-processor -> Redis feature parity passed")
 PY
