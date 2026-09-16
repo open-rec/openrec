@@ -21,7 +21,7 @@
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "a93c3c9eadacc81c70f50f5d590af05a87c6d9ed",
+      "ref": "496f2c964eaa9456d98846615f1ff5740bae397d",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
