@@ -30,7 +30,7 @@ users = [{"id": f"{prefix}_u{i}", "deviceId": f"d{i}", "name": f"Rank User {i}",
           "registerTime": str(now - 1000),
           "loginTime": str(now), "extFields": {}} for i in range(4)]
 items = [{"id": f"{prefix}_i{i}", "title": f"Rank Item {i}", "category": "rank",
-          "tags": "rank,acceptance", "scene": "scene_0", "pubTime": str(now - 100),
+          "tags": "rank,acceptance", "scene": f"scene_{i % 2}", "pubTime": str(now - 100),
           "modifyTime": str(now), "expireTime": str(now + 86400), "status": 1,
           "weight": i + 1, "extFields": {}} for i in range(4)]
 events = []
@@ -39,7 +39,7 @@ for u in range(4):
         kind = "click" if (u + i) % 2 == 0 else "expose"
         events.append({"userId": f"{prefix}_u{u}", "deviceId": f"d{u}",
                        "itemId": f"{prefix}_i{i}", "traceId": f"{prefix}_{u}_{i}",
-                       "scene": "scene_0", "type": kind, "value": "1",
+                       "scene": f"scene_{i % 2}", "type": kind, "value": "1",
                        "time": str(label_start + u * 4 + i), "isLogin": True, "extFields": {}})
 for kind, data in (("user", users), ("item", items), ("event", events)):
     (root / f"{kind}.json").write_text(json.dumps({"requestId": f"{prefix}-{kind}",
@@ -66,10 +66,23 @@ done
 
 run_model() {
   local revision="$1" model_type="$2" state="" output
-  local run_id="openrec-rank-acceptance-${model_type}-${revision}-$(date -u +%Y%m%dT%H%M%SZ)"
-  docker exec airflow-api-server airflow dags unpause -y openrec_rank_model >/dev/null
-  docker exec airflow-api-server airflow dags trigger -r "${run_id}" --conf \
-    "{\"business_date\":\"${BUSINESS_DATE}\",\"revision\":\"${revision}\",\"scene\":\"scene_0\",\"epochs\":2,\"min_auc\":0.0,\"model_type\":\"${model_type}\",\"factor_dim\":4}" openrec_rank_model >/dev/null
+  local run_id payload submitted
+  payload="$(python3 - "${BUSINESS_DATE}" "${revision}" "${model_type}" <<'PYCONF'
+import json, sys
+business_date, revision, kind = sys.argv[1:]
+selection = {"user": ["user.age"], "candidate": ["item.weight"]}
+if kind == "fm":
+    selection["user"].append("user.gender")
+    selection["candidate"].append("item.category")
+print(json.dumps({"business_date": business_date, "revision": revision,
+                  "scene": "global", "epochs": 2, "min_auc": 0,
+                  "model_type": kind, "factor_dim": 4,
+                  "feature_selection": selection}))
+PYCONF
+)"
+  submitted="$(curl --noproxy '*' -fsS -H 'Content-Type: application/json' \
+    --data "${payload}" http://127.0.0.1:8095/api/models/training)" || return 1
+  run_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["dag_run_id"])' <<<"${submitted}")" || return 1
   for attempt in {1..240}; do
     output="$(docker exec airflow-api-server airflow dags list-runs openrec_rank_model -o json 2>&1)"
     state="$(python3 -c 'import json,sys
@@ -91,14 +104,24 @@ for i,c in enumerate(p):
   die "rank model DAG timed out for ${revision}"
 }
 
-note "Training, evaluating, and publishing LR with its fitted feature space"
-RUN_ONE="$(run_model "${REVISION_ONE}" lr)"
-note "Training, evaluating, and publishing FM with its fitted feature space"
-RUN_TWO="$(run_model "${REVISION_TWO}" fm)"
-
 VERSION_ONE="${BUSINESS_DATE//-/}-${REVISION_ONE}"
 VERSION_TWO="${BUSINESS_DATE//-/}-${REVISION_TWO}"
-listing="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/scene_0)"
+previous="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
+previous_active="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("active_version"))' <<<"${previous}")"
+note "Training LR and FM without changing the active deployment"
+RUN_ONE="$(run_model "${REVISION_ONE}" lr)"
+RUN_TWO="$(run_model "${REVISION_TWO}" fm)"
+after_training="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
+python3 -c 'import json,sys; assert str(json.load(sys.stdin).get("active_version")) == sys.argv[1]' \
+  "${previous_active}" <<<"${after_training}" || die "training unexpectedly changed the active model"
+note "Explicitly publishing LR and then FM"
+for version in "${VERSION_ONE}" "${VERSION_TWO}"; do
+  curl --noproxy '*' -fsS -H 'Content-Type: application/json' --data \
+    "{\"scene\":\"global\",\"version\":\"${version}\",\"target_type\":\"item\"}" \
+    http://127.0.0.1:8095/api/models/releases/publish >/dev/null
+done
+
+listing="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
 python3 -c 'import json,sys
 x=json.load(sys.stdin); expected=set(sys.argv[1:]); assert x.get("active_version")==sys.argv[2],x
 assert expected.issubset({r.get("version") for r in x.get("releases",[])}),x
@@ -108,6 +131,9 @@ assert found[sys.argv[1]]["model_type"]=="lr",found
 assert found[sys.argv[2]]["model_type"]=="fm",found
 assert found[sys.argv[1]]["feature_set"]=="ranking-lr-v1",found
 assert found[sys.argv[2]]["feature_set"]=="ranking-fm-v1",found
+assert found[sys.argv[1]]["feature_selection"] == {"user": ["user.age"], "candidate": ["item.weight"]},found
+assert found[sys.argv[2]]["feature_selection"] == {"user": ["user.age", "user.gender"], "candidate": ["item.weight", "item.category"]},found
+assert all(r["scene"] == "global" for r in found.values()),found
 assert all(r.get("catalog_version")==2 and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
 assert all(r.get("label_observation_cutoff") and r.get("feature_join")=="per_sample_point_in_time" for r in found.values()),found
 assert all(r.get("metrics",{}).get("samples",0)>0 for r in found.values()),found
@@ -125,7 +151,7 @@ grep -Eq '"rankScore":[[:space:]]*[0-9]' <<<"${recommend}" \
 
 note "Rolling back atomically to the first retained model"
 rollback="$(curl --noproxy '*' -fsS -H 'Content-Type: application/json' --data \
-  "{\"scene\":\"scene_0\",\"target_version\":\"${VERSION_ONE}\"}" \
+  "{\"scene\":\"global\",\"target_version\":\"${VERSION_ONE}\"}" \
   http://127.0.0.1:8095/api/models/releases/rollback)"
 python3 -c 'import json,sys; x=json.load(sys.stdin); assert x.get("active_version")==sys.argv[1],x' \
   "${VERSION_ONE}" <<<"${rollback}" || die "model rollback verification failed"
@@ -148,7 +174,7 @@ for attempt in {1..60}; do
   sleep 2
 done
 [[ "${restored}" == true ]] || die "rank-engine did not restore the rolled-back model after restart"
-listing="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/scene_0)"
+listing="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
 python3 -c 'import json,sys; assert json.load(sys.stdin)["active_version"] == sys.argv[1]' \
   "${VERSION_ONE}" <<<"${listing}" || die "console and restored runtime versions disagree"
 

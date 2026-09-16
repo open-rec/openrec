@@ -191,8 +191,9 @@ accepted versions are retained by rec-console for rollback.
 
 The manual `openrec_rank_model` DAG reads cumulative Hive partitions through the requested business
 date, removes events for deleted items, prepares samples with a four-core Spark submission, trains
-an LR checkpoint, evaluates its held-out AUC gate, and atomically publishes the retained version to
-rank-engine. `openrec_rank_model_rollback` reactivates a retained version without retraining.
+an LR or FM checkpoint with the selected global features, evaluates its held-out AUC gate,
+and retains the immutable version. Publication is a separate action in rec-console; the DAG
+never changes the online model. `scene=global` trains from all scenes. `openrec_rank_model_rollback` reactivates a retained version without retraining.
 
 Run the deterministic two-version acceptance after the cluster is healthy:
 
@@ -200,8 +201,9 @@ Run the deterministic two-version acceptance after the cluster is healthy:
 bash example/example_cluster/verify_rank_model.sh 2026-08-21
 ```
 
-The script verifies Hive ingestion, an LR and an FM train/evaluate/publish run with their independent
-Feature Sets and fitted sidecars, release metadata and checksums, FM scores returned through the
+The script submits LR and FM training through the console API using distinct feature subsets
+and a global scope over two fixture scenes. It verifies training leaves the active release unchanged,
+then explicitly publishes versions and checks fitted sidecars, release metadata and checksums, FM scores returned through the
 rec-server online DAG, and rollback to the LR version. Model releases are also visible under the
 rec-console **Rank Model** page.
 
@@ -282,3 +284,6 @@ docker exec spark-master cat /tmp/openrec-data-processor.log
 Application build output, Web Demo logs, and PID state are isolated under
 `example/example_cluster/.runtime/`. Airflow DAG source remains under
 `example/example_cluster/airflow/dags/` and is mounted read-only by the platform.
+
+The local global-feature lifecycle validation and host-specific disk settings are recorded in
+[the validation report](../docs/local-cluster-feature-validation.md).

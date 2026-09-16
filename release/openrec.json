@@ -6,7 +6,7 @@
   "components": {
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
-      "ref": "master",
+      "ref": "59091f14c16213b5f7f0fed16f31405e8473fd3f",
       "required_for": ["standalone", "cluster"]
     },
     "data-processor": {
@@ -16,17 +16,17 @@
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "054666fa325f40e12839654fd85eca095b4c4111",
+      "ref": "3e4ce09825a217383b84d966ea46adc96354c606",
       "required_for": ["cluster"]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "master",
+      "ref": "3ff7a7a5e7de16e1394f9760d20686da988ace77",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "master",
+      "ref": "e5424271c5f67a7b17c7418b92e20296a3a175e8",
       "required_for": ["standalone", "cluster"]
     },
     "rec-server": {

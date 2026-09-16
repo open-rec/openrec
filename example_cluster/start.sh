@@ -94,7 +94,8 @@ if [[ -f "${pid_file}" ]]; then
   rm -f "${pid_file}"
 fi
 
-for required_port in 13579 12345 8123 8091 8095; do
+# Airflow (8091) belongs to the reusable cluster platform, not this app.
+for required_port in 13579 12345 8123 8095; do
   if (echo >/dev/tcp/127.0.0.1/"${required_port}") >/dev/null 2>&1; then
     die "required port ${required_port} is occupied; run ${SCRIPT_DIR}/stop.sh and retry"
   fi
