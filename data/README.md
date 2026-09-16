@@ -25,8 +25,10 @@ I2I triggers and rank comparisons.
 
 Two things to expect from this data:
 
-- These are raw inputs only. Deployable recall, rank and feature artifacts live in the sibling
-  `model` repository and are rebuilt when the raw input hashes change.
+- These are raw inputs only. Default recall, rank and feature artifacts live in the sibling
+  `model` repository and are rebuilt when the raw input hashes change. Versions created by
+  cluster training live separately in the shared model artifact volume; training does not
+  overwrite the default bundle.
 
 Regenerate the raw inputs:
 

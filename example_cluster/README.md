@@ -191,7 +191,8 @@ accepted versions are retained by rec-console for rollback.
 
 The manual `openrec_rank_model` DAG reads cumulative Hive partitions through the requested business
 date, removes events for deleted items, prepares samples with a four-core Spark submission, trains
-an LR or FM checkpoint with the selected global features, evaluates its held-out AUC gate,
+an LR or FM checkpoint with the selected global features in rec-algorithm's offline CPU PyTorch
+subprocess, evaluates its held-out AUC gate,
 and retains the immutable version. Publication is a separate action in rec-console; the DAG
 never changes the online model. `scene=global` trains from all scenes. `openrec_rank_model_rollback` reactivates a retained version without retraining.
 
@@ -202,10 +203,24 @@ bash example/example_cluster/verify_rank_model.sh 2026-08-21
 ```
 
 The script submits LR and FM training through the console API using distinct feature subsets
-and a global scope over two fixture scenes. It verifies training leaves the active release unchanged,
-then explicitly publishes versions and checks fitted sidecars, release metadata and checksums, FM scores returned through the
+and a global scope over two fixture scenes. It stops rank-engine before catalog access and training,
+verifies both models finish while inference remains stopped and the active release is unchanged,
+then restores inference and explicitly publishes versions and checks fitted sidecars, release metadata and checksums, FM scores returned through the
 rec-server online DAG, and rollback to the LR version. Model releases are also visible under the
-rec-console **Rank Model** page.
+rec-console **Rank Model** page. The script also verifies the retired `/model/train` endpoint
+returns 404 and that the rolled-back version survives a rank-engine restart.
+
+Deploy the updated rec-algorithm runner, rec-console and rank-engine together. Catalog endpoints
+`/features` and `/features/validate` now belong to the runner. Runtime releases live in the shared
+model volume, independently of the `model/` repository's default artifacts. Compose runs
+`rank-artifact-init` to give Spark ownership of existing release/training directories; it leaves
+online activation records unchanged. When using `--no-deps`, run that init service explicitly.
+
+`start.sh --local` supplies local PyTorch base and pip mirror defaults for inference and training.
+Override training builds with `RANK_TRAINING_BASE_IMAGE` and `RANK_TRAINING_PIP_INDEX_URL`.
+`RANK_RUNNER_CPUS=4`, `RANK_RUNNER_MEMORY=8g` and `RANK_TRAINING_THREADS=2` bound the offline
+runner. Spark distributes sample preparation; current model parameter training remains on the
+driver and must fit its memory budget.
 
 Validate the rec-console business-analysis dashboard with isolated deterministic events:
 

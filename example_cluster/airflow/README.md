@@ -26,6 +26,18 @@ The daily recall schedule, algorithm order, revision, retention, and retry polic
 versioned configuration published by rec-console. Airflow remains the execution and run-state
 authority; rec-console never edits the Python DAG source.
 
+## Rank training boundary
+
+rec-console validates feature selection through the rec-algorithm runner, then triggers
+`openrec_rank_model`. That DAG calls the runner's `/jobs/rank/train`: Spark prepares point-in-time
+samples and runs the offline PyTorch trainer to evaluate and retain a version. It does not call
+rank-engine, and training remains available while inference is stopped. Current LR/FM parameter
+training runs on the offline driver CPU, not across Spark executors.
+
+A successful run does not activate the result. Publish explicitly through rec-console; rollback
+also requires the online service. New features and model adapters must be implemented and checked
+in both processing paths before they become selectable. These DAGs do not generate feature code.
+
 ## Operation and diagnosis
 
 `example_cluster/start.sh` starts the platform and triggers bootstrap. Use rec-console or the

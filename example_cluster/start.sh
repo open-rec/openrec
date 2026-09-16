@@ -17,7 +17,8 @@ Usage: ${0##*/} [--local]
   --local  Use the repository's mainland-China PyTorch and PyPI mirrors.
   -h, --help  Show this help.
 
-Explicit RANK_BASE_IMAGE and RANK_PIP_INDEX_URL values take precedence over --local defaults.
+Explicit RANK_BASE_IMAGE / RANK_PIP_INDEX_URL and RANK_TRAINING_BASE_IMAGE /
+RANK_TRAINING_PIP_INDEX_URL values take precedence over --local defaults.
 EOF
 }
 
@@ -33,7 +34,10 @@ done
 if [[ "${LOCAL_MODE}" == true ]]; then
   : "${RANK_BASE_IMAGE:=mirrors-ssl.aliyuncs.com/pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel}"
   : "${RANK_PIP_INDEX_URL:=https://pypi.tuna.tsinghua.edu.cn/simple}"
+  : "${RANK_TRAINING_BASE_IMAGE:=${RANK_BASE_IMAGE}}"
+  : "${RANK_TRAINING_PIP_INDEX_URL:=${RANK_PIP_INDEX_URL}}"
   export RANK_BASE_IMAGE RANK_PIP_INDEX_URL
+  export RANK_TRAINING_BASE_IMAGE RANK_TRAINING_PIP_INDEX_URL
 fi
 
 note() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }

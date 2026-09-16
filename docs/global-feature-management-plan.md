@@ -20,7 +20,7 @@ Publishing never edits that selection. Training never automatically publishes.
    ranking. Persist selected definition fingerprints in FeatureSpace. New releases
    tolerate unrelated catalog additions while rejecting incompatible dependencies;
    legacy releases retain their existing validation behavior.
-2. **Training pipeline (rec-console, example, rec-algorithm, rank-engine).** Pass
+2. **Training pipeline (rec-console, example, rec-algorithm).** Pass
    the same selection through the console, Airflow, Spark runner and trainer.
    Validate at each trust boundary. Default new UI training to all scenes and
    separate manual publication from DAG completion. Retain legacy scene artifacts.
@@ -129,3 +129,23 @@ Verified using the existing local application images and read-only source mounts
 The live Hive/Spark/Kafka/Redis acceptance script passed on 2026-09-16 after
 `start.sh --local`; see [local validation](local-cluster-feature-validation.md).
 Browser-based interaction tests have not been run.
+
+## Offline execution boundary correction
+
+The previous implementation handed the final training step to rank-engine. This
+is superseded by `rec-console → Airflow → rec-algorithm Spark job → offline
+PyTorch trainer → immutable release`. Rank-engine only loads and scores releases.
+Catalog discovery/validation move to the algorithm runner. LR/FM run on the
+offline driver CPU after distributed Spark preparation; model parameters are not
+trained distributively. Feature implementation remains an engineering task.
+
+Deploy rec-algorithm, rec-console and rank-engine together at the companion
+commits pinned in `release/openrec.json`. These component commits were pushed
+before updating the distribution references.
+The runner's `rank-artifact-init` prerequisite transfers ownership of releases
+and training directories to the Spark user when upgrading older volumes. It
+leaves online activation records unchanged. No bigdata-platform change is needed.
+
+`verify_rank_model.sh` now stops rank-engine before feature discovery and LR/FM
+training, verifies that training leaves publication unchanged, then starts
+inference and verifies explicit publication, scores, rollback and recovery.

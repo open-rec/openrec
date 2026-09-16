@@ -7,7 +7,12 @@ REVISION_ONE="${2:-r${STAMP}1}"
 REVISION_TWO="${3:-r${STAMP}2}"
 PREFIX="rank_accept_${BUSINESS_DATE//-/}_${STAMP}"
 TMP_DIR="$(mktemp -d /tmp/openrec-rank-acceptance.XXXXXX)"
-trap 'rm -rf "${TMP_DIR}"' EXIT
+RANK_STOPPED=false
+cleanup() {
+  if [[ "${RANK_STOPPED}" == true ]]; then docker start rank-engine >/dev/null; fi
+  rm -rf "${TMP_DIR}"
+}
+trap cleanup EXIT
 
 note() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 die() { echo "error: $*" >&2; exit 1; }
@@ -108,12 +113,30 @@ VERSION_ONE="${BUSINESS_DATE//-/}-${REVISION_ONE}"
 VERSION_TWO="${BUSINESS_DATE//-/}-${REVISION_TWO}"
 previous="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
 previous_active="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("active_version"))' <<<"${previous}")"
+note "Stopping inference and verifying offline training remains available"
+RANK_STOPPED=true
+docker stop rank-engine >/dev/null
+curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/features > "${TMP_DIR}/catalog.json"
+python3 -c 'import json,sys; assert "lr" in json.load(open(sys.argv[1]))["models"]' "${TMP_DIR}/catalog.json"
 note "Training LR and FM without changing the active deployment"
 RUN_ONE="$(run_model "${REVISION_ONE}" lr)"
 RUN_TWO="$(run_model "${REVISION_TWO}" fm)"
 after_training="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
 python3 -c 'import json,sys; assert str(json.load(sys.stdin).get("active_version")) == sys.argv[1]' \
   "${previous_active}" <<<"${after_training}" || die "training unexpectedly changed the active model"
+docker inspect -f '{{.State.Running}}' rank-engine | grep -qx false \
+  || die "inference unexpectedly started during offline training"
+note "Restoring inference after offline artifacts have been created"
+docker start rank-engine >/dev/null
+RANK_STOPPED=false
+for attempt in {1..90}; do
+  if curl --noproxy '*' -fsS http://127.0.0.1:8123/health >/dev/null 2>&1; then break; fi
+  [[ "${attempt}" -lt 90 ]] || die "rank-engine did not recover before publication"
+  sleep 2
+done
+status="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' --data '{}' http://127.0.0.1:8123/model/train)"
+[[ "${status}" == 404 ]] || die "inference service still exposes training"
 note "Explicitly publishing LR and then FM"
 for version in "${VERSION_ONE}" "${VERSION_TWO}"; do
   curl --noproxy '*' -fsS -H 'Content-Type: application/json' --data \
@@ -185,5 +208,5 @@ First version:  ${VERSION_ONE}
 Second version: ${VERSION_TWO}
 Active after rollback: ${VERSION_ONE}
 Airflow runs: ${RUN_ONE}, ${RUN_TWO}
-Verified: Push -> Kafka -> data-processor -> Hive -> LR/FM feature sets -> train -> console publish -> rank-engine -> rec-server score -> rollback -> restart recovery
+Verified: Push -> Kafka -> data-processor -> Hive -> LR/FM feature sets -> offline train with rank-engine stopped -> console publish -> rank-engine -> rec-server score -> rollback -> restart recovery
 EOF

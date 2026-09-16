@@ -79,3 +79,43 @@ Airflow runs：
 | `rank-engine` | `3e4ce09825a217383b84d966ea46adc96354c606` |
 | `rec-console` | `e5424271c5f67a7b17c7418b92e20296a3a175e8` |
 | `bigdata-platform` | `59091f14c16213b5f7f0fed16f31405e8473fd3f` |
+
+## 2026-09-16：训练迁出在线服务后的补充验收
+
+以下结果对应训练迁出在线服务后的配套修改；上表保留上一轮验收版本，
+本轮组件已推送，分发清单已更新至下列提交。
+沿用 `start.sh --local` 启动的 cluster，在相同本地镜像和 pip 镜像配置下重建
+rec-algorithm-runner、rank-engine、rec-console，并执行：
+
+```shell
+docker compose -f example/example_cluster/docker-compose.yml run --rm --no-deps rank-artifact-init
+bash example/example_cluster/verify_rank_model.sh
+python example/scripts/verify_rank_feature_contract.py
+```
+
+- rank-engine 停止期间，控制台成功读取全局特征并提交 LR/FM 的 Spark 训练。
+- 离线进程产出 `20260916-r1349351`（LR）和 `20260916-r1349352`（FM），
+  训练前后线上发布记录保持不变；训练结束时 rank-engine 仍为停止状态。
+- 恢复在线服务后，旧 `/model/train` 返回 404；显式发布、rec-server 实际评分、
+  回滚 LR、重启恢复全部通过。
+- 训练/特征/推理回归 92 项通过；补充失败清理和版本不可变测试后，训练测试
+  单独重跑 5 项通过（其中新增 2 项）。控制台 40 项通过，共覆盖 134 个测试。
+- 修改的 Python 文件通过 Ruff format（79 列）和 E/W/F 检查；shell 语法、
+  分发训练契约、各仓库 `git diff --check` 通过。
+- 发现并修复旧版本 root 所有的共享产物目录不能由 Spark 写入的问题；新增
+  `rank-artifact-init` 迁移 releases/training 所有权，保留 active 发布记录。
+- Spark 分布式构建样本，LR/FM 在离线 driver 子进程中用 CPU PyTorch 训练，
+  不代表参数分布式训练。此次未修改 bigdata-platform。
+
+本地日志：`/tmp/openrec-offline-build.log`、`/tmp/openrec-offline-tests.log`、
+`/tmp/openrec-offline-console-tests.log`、`/tmp/openrec-offline-e2e.log`。
+
+### 本轮提交
+
+| 组件 | 提交 |
+| --- | --- |
+| `rec-algorithm` | `a93c3c9eadacc81c70f50f5d590af05a87c6d9ed` |
+| `rank-engine` | `d1ae0cbbfb3f8ca4b32f013fd32dbd62c894111f` |
+| `rec-console` | `977c4f24bb49573b75bcb5a693e9760d18f86ef0` |
+| `data-processor` | `8a912954b318443bd06f1a8073397b3ad8246968` |
+| `model` | `5c19015f4d648b4e3b4080a2a66197c83ceda228` |
