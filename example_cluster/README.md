@@ -191,7 +191,7 @@ accepted versions are retained by rec-console for rollback.
 
 The manual `openrec_rank_model` DAG reads cumulative Hive partitions through the requested business
 date, removes events for deleted items, prepares samples with a four-core Spark submission, trains
-an LR or FM checkpoint with the selected global features in rec-algorithm's offline CPU PyTorch
+an LR, FM, or LightGBM artifact with the selected global features in rec-algorithm's offline CPU
 subprocess, evaluates its held-out AUC gate,
 and retains the immutable version. Publication is a separate action in rec-console; the DAG
 never changes the online model. `scene=global` trains from all scenes. `openrec_rank_model_rollback` reactivates a retained version without retraining.

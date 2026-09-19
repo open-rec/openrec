@@ -11,22 +11,22 @@
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "28ba3dd8e90d6984554c0327ab18c082b66392f1",
+      "ref": "5b0ddb5bd54eddf551098595996e91eca5a42370",
       "required_for": ["cluster"]
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "d68d6f0680c5c238e3d8350cd883e1e63630bc52",
+      "ref": "6ea92a5183e4c175e24ad516adb1944d66541636",
       "required_for": ["cluster"]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "2b78971beeb298959bbcf141a17a721e97e208e9",
+      "ref": "14ed024302fee14c115796beb00abc8bac7b4019",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "977c4f24bb49573b75bcb5a693e9760d18f86ef0",
+      "ref": "c7aff61e18406c4a92ac6102f461369d3b8a592b",
       "required_for": ["standalone", "cluster"]
     },
     "rec-server": {

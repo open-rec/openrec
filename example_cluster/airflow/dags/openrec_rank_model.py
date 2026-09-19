@@ -37,7 +37,9 @@ def request(url, body=None, timeout=7200):
         "revision": Param("r001", type="string"),
         "scene": Param("global", type="string"),
         "epochs": Param(5, type="integer", minimum=1),
-        "model_type": Param("lr", type="string", enum=["lr", "fm"]),
+        "model_type": Param(
+            "lr", type="string", enum=["lr", "fm", "lightgbm"]
+        ),
         "target_type": Param("item", type="string", enum=["item", "user"]),
         "feature_selection": Param(None, type=["null", "object"]),
         "batch_size": Param(256, type="integer", minimum=1),

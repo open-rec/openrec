@@ -19,7 +19,7 @@ ingestion path.
 | `openrec_daily_recall` | Published configuration | Run the ordered recall pipeline, write staging indexes, and request validated activation through rec-console |
 | `openrec_daily_user_recall` | Published configuration | Build and atomically activate UserCF, content, and embedding U2U recall tables |
 | `openrec_recall_rollback` | Manual | Ask rec-console to restore a retained recall-index version |
-| `openrec_rank_model` | Manual | Prepare training data, train/evaluate LR or FM, and retain an immutable release for manual deployment |
+| `openrec_rank_model` | Manual | Prepare training data, train/evaluate LR, FM, or LightGBM, and retain an immutable release for manual deployment |
 | `openrec_rank_model_rollback` | Manual | Reactivate a retained rank-model release through rec-console and rank-engine |
 
 The daily recall schedule, algorithm order, revision, retention, and retry policy come from the
@@ -30,8 +30,8 @@ authority; rec-console never edits the Python DAG source.
 
 rec-console validates feature selection through the rec-algorithm runner, then triggers
 `openrec_rank_model`. That DAG calls the runner's `/jobs/rank/train`: Spark prepares point-in-time
-samples and runs the offline PyTorch trainer to evaluate and retain a version. It does not call
-rank-engine, and training remains available while inference is stopped. Current LR/FM parameter
+samples and runs the offline trainer to evaluate and retain a version. It does not call
+rank-engine, and training remains available while inference is stopped. Current model parameter
 training runs on the offline driver CPU, not across Spark executors.
 
 A successful run does not activate the result. Publish explicitly through rec-console; rollback

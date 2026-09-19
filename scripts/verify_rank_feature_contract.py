@@ -61,27 +61,30 @@ def main():
     )
     from types import SimpleNamespace
 
-    config = {
-        "business_date": "2026-09-16",
-        "revision": "r001",
-        "scene": "global",
-        "epochs": 1,
-        "min_auc": 0,
-        "model_type": "lr",
-        "target_type": "item",
-        "factor_dim": 8,
-        "batch_size": 16,
-        "validation_ratio": 0.2,
-        "feature_selection": selection,
-    }
-    result = namespace["train"](
-        dag_run=SimpleNamespace(conf=config), params=config
-    )
-    assert result["feature_selection"] == selection
-    assert len(calls) == 1 and calls[0][0].endswith("/jobs/rank/train")
+    for index, model_type in enumerate(("lr", "fm", "lightgbm"), 1):
+        config = {
+            "business_date": "2026-09-16",
+            "revision": "r%03d" % index,
+            "scene": "global",
+            "epochs": 1,
+            "min_auc": 0,
+            "model_type": model_type,
+            "target_type": "item",
+            "factor_dim": 8,
+            "batch_size": 16,
+            "validation_ratio": 0.2,
+            "feature_selection": selection,
+        }
+        result = namespace["train"](
+            dag_run=SimpleNamespace(conf=config), params=config
+        )
+        assert result["feature_selection"] == selection
+        assert calls[-1][1]["model_type"] == model_type
+    assert len(calls) == 3
+    assert all(call[0].endswith("/jobs/rank/train") for call in calls)
     print(
         "PASS: training-only DAG preserves global scope and selected features "
-        "through Spark runner"
+        "through Spark runner for LR, FM, and LightGBM"
     )
 
 

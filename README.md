@@ -37,8 +37,8 @@ repository defines which component versions are known to work together.
 The canonical global feature definitions live in `model/feature/catalog`; rec-algorithm and
 data-processor carry validated copies. The model repository also holds generated bootstrap
 artifacts. Runtime training versions are stored separately in the shared model artifact volume.
-rec-console selects supported LR/FM feature subsets and triggers Airflow; rec-algorithm prepares
-samples with Spark and trains/evaluates in an offline PyTorch process. rank-engine only loads
+rec-console selects supported LR/FM/LightGBM feature subsets and triggers Airflow; rec-algorithm prepares
+samples with Spark and trains/evaluates in an isolated offline process. rank-engine only loads
 published versions and performs online inference. Training never automatically publishes.
 
 Feature implementation and backfills remain engineering tasks. See the

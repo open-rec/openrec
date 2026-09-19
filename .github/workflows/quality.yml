@@ -49,6 +49,10 @@ jobs:
         working-directory: openrec/example
         run: ./scripts/validate.sh
 
+      - name: Verify rank model feature transport
+        working-directory: openrec/example
+        run: python scripts/verify_rank_feature_contract.py
+
       - name: Build and test Java compatibility chain
         working-directory: openrec/example
         run: ./scripts/build-components.sh
