@@ -111,7 +111,10 @@ local mirror defaults without exporting variables manually:
 ./example/example_cluster/start.sh --local
 ```
 
-`--local` uses the Aliyun PyTorch base image and the Tsinghua PyPI mirror. Explicit
+`--local` uses the official `pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime` serving base
+and the Tsinghua PyPI mirror. Offline training retains its separate Aliyun PyTorch 2.8
+base because the Spark runner copies `/opt/conda`, which is absent from the new serving image.
+Explicit
 `RANK_BASE_IMAGE` or `RANK_PIP_INDEX_URL` environment values still take precedence when a different
 local registry or package mirror is required.
 
@@ -216,7 +219,8 @@ model volume, independently of the `model/` repository's default artifacts. Comp
 `rank-artifact-init` to give Spark ownership of existing release/training directories; it leaves
 online activation records unchanged. When using `--no-deps`, run that init service explicitly.
 
-`start.sh --local` supplies local PyTorch base and pip mirror defaults for inference and training.
+`start.sh --local` supplies separate serving and training bases plus the local pip mirror.
+Changing `RANK_BASE_IMAGE` no longer implicitly changes the training base.
 Override training builds with `RANK_TRAINING_BASE_IMAGE` and `RANK_TRAINING_PIP_INDEX_URL`.
 `RANK_RUNNER_CPUS=4`, `RANK_RUNNER_MEMORY=8g` and `RANK_TRAINING_THREADS=2` bound the offline
 runner. Spark distributes sample preparation; current model parameter training remains on the

@@ -14,7 +14,7 @@ usage() {
   cat <<EOF
 Usage: ${0##*/} [--local]
 
-  --local  Use the repository's mainland-China PyTorch and PyPI mirrors.
+  --local  Use the mainland-China PyPI mirror; keep the official PyTorch base.
   -h, --help  Show this help.
 
 Explicit RANK_BASE_IMAGE / RANK_PIP_INDEX_URL and RANK_TRAINING_BASE_IMAGE /
@@ -32,9 +32,10 @@ while (($#)); do
 done
 
 if [[ "${LOCAL_MODE}" == true ]]; then
-  : "${RANK_BASE_IMAGE:=mirrors-ssl.aliyuncs.com/pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel}"
+  : "${RANK_BASE_IMAGE:=pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime}"
   : "${RANK_PIP_INDEX_URL:=https://pypi.tuna.tsinghua.edu.cn/simple}"
-  : "${RANK_TRAINING_BASE_IMAGE:=${RANK_BASE_IMAGE}}"
+  # Training copies /opt/conda into Spark; newer serving bases use system Python.
+  : "${RANK_TRAINING_BASE_IMAGE:=mirrors-ssl.aliyuncs.com/pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel}"
   : "${RANK_TRAINING_PIP_INDEX_URL:=${RANK_PIP_INDEX_URL}}"
   export RANK_BASE_IMAGE RANK_PIP_INDEX_URL
   export RANK_TRAINING_BASE_IMAGE RANK_TRAINING_PIP_INDEX_URL

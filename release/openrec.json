@@ -16,12 +16,12 @@
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "6ea92a5183e4c175e24ad516adb1944d66541636",
+      "ref": "cb019b0af17699bdf3014c88bb332a7a208eb3c3",
       "required_for": ["cluster"]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "14ed024302fee14c115796beb00abc8bac7b4019",
+      "ref": "5452018e4953d72653355b229cac8dcfaac62dce",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
@@ -36,7 +36,7 @@
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
-      "ref": "main",
+      "ref": "4667df00723f19bcaaf023941d2a15b098c90a72",
       "required_for": ["standalone", "cluster"]
     }
   },

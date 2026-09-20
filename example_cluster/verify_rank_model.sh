@@ -146,7 +146,8 @@ done
 
 listing="$(curl --noproxy '*' -fsS http://127.0.0.1:8095/api/models/releases/global)"
 python3 -c 'import json,sys
-x=json.load(sys.stdin); expected=set(sys.argv[1:]); assert x.get("active_version")==sys.argv[2],x
+x=json.load(sys.stdin); expected=set(sys.argv[1:3]); assert x.get("active_version")==sys.argv[2],x
+catalog=json.load(open(sys.argv[3]))
 assert expected.issubset({r.get("version") for r in x.get("releases",[])}),x
 assert all(r.get("gate",{}).get("passed") for r in x["releases"] if r.get("version") in expected),x
 found={r["version"]:r for r in x["releases"] if r.get("version") in expected}
@@ -157,13 +158,13 @@ assert found[sys.argv[2]]["feature_set"]=="ranking-fm-v1",found
 assert found[sys.argv[1]]["feature_selection"] == {"user": ["user.age"], "candidate": ["item.weight"]},found
 assert found[sys.argv[2]]["feature_selection"] == {"user": ["user.age", "user.gender"], "candidate": ["item.weight", "item.category"]},found
 assert all(r["scene"] == "global" for r in found.values()),found
-assert all(r.get("catalog_version")==2 and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
+assert all(r.get("catalog_version")==catalog["catalog_version"] and r.get("catalog_sha256")==catalog["catalog_sha256"] and r.get("feature_sha256") and r.get("input_dim")>0 for r in found.values()),found
 assert all(r.get("label_observation_cutoff") and r.get("feature_join")=="per_sample_point_in_time" for r in found.values()),found
 assert all(r.get("metrics",{}).get("samples",0)>0 for r in found.values()),found
 assert all(r.get("metrics",{}).get("training_samples",0)>0 and r.get("metrics",{}).get("validation_samples",0)>0 for r in found.values()),found
 assert all(0<r["metrics"].get("positive_rate",0)<1 for r in found.values()),found
 assert all(r["metrics"].get("auc") is not None for r in found.values()),found
-' "${VERSION_ONE}" "${VERSION_TWO}" <<<"${listing}" || die "model publish verification failed"
+' "${VERSION_ONE}" "${VERSION_TWO}" "${TMP_DIR}/catalog.json" <<<"${listing}" || die "model publish verification failed"
 
 note "Verifying rec-server uses the active FM through rank-engine"
 recommend="$(curl --noproxy '*' -fsS -H 'Content-Type: application/json' --data \

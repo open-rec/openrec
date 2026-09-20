@@ -53,6 +53,10 @@ jobs:
         working-directory: openrec/example
         run: python scripts/verify_rank_feature_contract.py
 
+      - name: Verify SDK feature and event contracts
+        working-directory: openrec/example
+        run: python scripts/verify_sdk_feature_contract.py
+
       - name: Build and test Java compatibility chain
         working-directory: openrec/example
         run: ./scripts/build-components.sh
