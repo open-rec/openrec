@@ -69,8 +69,12 @@ if [[ -f "${MODEL_ROOT}/default.manifest.json" && -d "${MODEL_ROOT}/recall" ]]; 
   rsync -a "${MODEL_ROOT}/default.manifest.json" "${BUILD_OUTPUT}/default.manifest.json"
   rsync -a "${MODEL_ROOT}/recall/" "${BUILD_OUTPUT}/recall/"
 fi
+# The host UID may have no passwd entry in the image. Torch imports Dynamo even for Adam
+# initialization, so give Inductor a writable cache without its getpass.getuser() fallback.
+# Keep the cache inside the disposable container, outside the published artifact bundle.
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint python \
   -e PYTHONPATH=/openrec-algorithm \
+  -e TORCHINDUCTOR_CACHE_DIR=/tmp/openrec-torchinductor \
   -v "${WORKSPACE}/rec-algorithm:/openrec-algorithm:ro" \
   -v "${DATA_DIR}:/openrec-input:ro" \
   -v "${BUILD_OUTPUT}:/openrec-output" \
