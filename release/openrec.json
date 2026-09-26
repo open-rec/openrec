@@ -36,7 +36,7 @@
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
-      "ref": "6c878a208e9c1e72e1bc82e9125c95be7971cb84",
+      "ref": "af57523ec6a62e77284bba948ec9cae37b0f9f14",
       "required_for": ["standalone", "cluster"]
     }
   },
