@@ -172,7 +172,7 @@ docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${sm
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
   'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
-for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
+for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i sparse; do
   docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
     "https://localhost:9200/_alias/openrec-recall-${recall_kind}-active" >/dev/null \
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"
@@ -193,7 +193,7 @@ recommend() {
   curl --noproxy '*' -fsS -X POST \
     http://127.0.0.1:13579/api/recommend \
     -H 'Content-Type: application/json' \
-    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\"}}}"
+    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\",\"query\":\"item\"}}}"
 }
 
 # The health endpoint does not initialize rec-server's Elasticsearch TLS connection or search
@@ -225,7 +225,7 @@ results = (response.get("data") or {}).get("results") or []
 channels = {item.get("recallFrom") for item in results if item.get("recallFrom")}
 for item in results:
     channels.update((item.get("recallScores") or {}).keys())
-required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "hot"}
+required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse", "hot"}
 missing = required - channels
 if missing:
     raise SystemExit("missing channels: %s" % ",".join(sorted(missing)))

@@ -21,6 +21,7 @@ REQUIRED_RECALL_CHANNELS = {
     "content_i2i",
     "user_cf_u2i",
     "item_seq_emb",
+    "sparse",
     "hot",
 }
 
@@ -64,6 +65,7 @@ def _recommendation_request(request_id):
                 "userId": "user_0",
                 "deviceId": "airflow-cluster-smoke",
                 "type": "click",
+                "params": {"query": "item"},
                 "debug": False,
             },
         },
@@ -84,6 +86,7 @@ def _recall_counts():
         "openrec-recall-item-cf-i2i-active",
         "openrec-recall-content-i2i-active",
         "openrec-recall-user-cf-u2i-active",
+        "openrec-recall-sparse-active",
         "scene_0-item-vector-index",
     ):
         try:

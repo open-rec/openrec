@@ -105,6 +105,9 @@ The same recall CSVs are also loaded into versioned Elasticsearch indexes behind
 every run; Redis keys are overwritten in place, so
 stale keys from a previous dataset survive. Flush Redis if you switch datasets.
 
+The initializer also projects `title`, `category`, and `tags` from `item.csv` into the BM25-backed
+`openrec-recall-sparse-active` index used by request-time text recall.
+
 `new.csv` supplies a normalized freshness score in `[0, 1]`. The loader projects it onto the Unix
 time domain expected by `NewNode` by multiplying every score by one timestamp captured at the start
 of the new-table import. This preserves ordering and lets the configured duration query select the

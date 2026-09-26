@@ -79,6 +79,15 @@ public class InitStandalone {
             "  \"aliases\": {\"%s\": {}}\n" +
             "}";
 
+    private static final String SPARSE_INDEX = "{\n" +
+            "  \"mappings\": {\"properties\": {\n" +
+            "    \"scene\": {\"type\": \"keyword\"},\n" +
+            "    \"item\": {\"type\": \"keyword\"},\n" +
+            "    \"text\": {\"type\": \"text\", \"similarity\": \"BM25\"}\n" +
+            "  }},\n" +
+            "  \"aliases\": {\"openrec-recall-sparse-active\": {}}\n" +
+            "}";
+
     static {
         useDataDir(DEFAULT_DATA_DIR);
         useModelDir(System.getProperty("user.dir") + "/../model");
@@ -467,6 +476,54 @@ public class InitStandalone {
         log.info("init {} recall data finished: {} -> {}", kind, indexName, aliasName);
     }
 
+    private static void initEsSparseData(ElasticsearchClient esClient) {
+        String version = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE);
+        String indexName = "openrec-recall-sparse-" + version + "-r001";
+        String aliasName = "openrec-recall-sparse-active";
+        try {
+            BooleanResponse aliasExists = esClient.indices().existsAlias(a -> a.name(aliasName));
+            if (aliasExists.value()) {
+                for (String index : esClient.indices().getAlias(a -> a.name(aliasName)).result().keySet()) {
+                    esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(index)));
+                }
+            }
+            if (esClient.indices().exists(ExistsRequest.of(i -> i.index(indexName))).value()) {
+                esClient.indices().delete(DeleteIndexRequest.of(i -> i.index(indexName)));
+            }
+            if (!esClient.indices().create(CreateIndexRequest.of(i -> i.index(indexName)
+                    .withJson(new StringReader(SPARSE_INDEX)))).acknowledged()) {
+                throw new IllegalStateException(indexName + " create failed");
+            }
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader()
+                    .withIgnoreEmptyLines(true).withTrim()
+                    .parse(Files.newBufferedReader(Paths.get(testItemData)));
+            BulkRequest.Builder bulk = new BulkRequest.Builder();
+            int batchCount = 0;
+            for (CSVRecord record : records) {
+                Map<String, Object> document = new HashMap<>();
+                document.put("scene", record.get("scene"));
+                document.put("item", record.get("id"));
+                document.put("text", String.join(" ", record.get("title"),
+                        record.get("category"), record.get("tags")));
+                String id = record.get("scene") + ":" + record.get("id");
+                bulk.operations(op -> op.index(idx -> idx.index(indexName).id(id).document(document)));
+                if (++batchCount == 1000) {
+                    if (esClient.bulk(bulk.build()).errors()) {
+                        throw new IllegalStateException(indexName + " bulk load failed");
+                    }
+                    bulk = new BulkRequest.Builder();
+                    batchCount = 0;
+                }
+            }
+            if (batchCount > 0 && esClient.bulk(bulk.build()).errors()) {
+                throw new IllegalStateException(indexName + " bulk load failed");
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        log.info("init sparse data finished: {} -> {}", indexName, aliasName);
+    }
+
     public static void initRedisData(String host, int port) {
         RedisTemplate redisTemplate = RedisUtil.getRedis(host, port);
         if (redisTemplate == null) {
@@ -498,6 +555,7 @@ public class InitStandalone {
         initEsRecallData(esClient, "item-cf-i2i", testRecallI2iData);
         initEsRecallData(esClient, "content-i2i", testRecallContentI2iData);
         initEsRecallData(esClient, "user-cf-u2i", testRecallUserCfU2iData);
+        initEsSparseData(esClient);
         initEsEmbeddingData(esClient);
         log.info("init es data finished");
     }

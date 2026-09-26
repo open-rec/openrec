@@ -128,7 +128,7 @@ for offset, char in enumerate(payload):
 done
 
 note "Verifying non-empty versioned indexes and active aliases"
-for algorithm in hot item-cf-i2i content-i2i user-cf-u2i; do
+for algorithm in hot item-cf-i2i content-i2i user-cf-u2i sparse; do
   expected="openrec-recall-${algorithm}-${BUSINESS_DATE//-/}-${REVISION}"
   release="$(curl --noproxy '*' -fsS "http://127.0.0.1:8095/api/recall/releases/${algorithm}")"
   python3 -c '
