@@ -21,17 +21,17 @@
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "5452018e4953d72653355b229cac8dcfaac62dce",
+      "ref": "92f8c68d8800e597f06fc5bae4612b2aa71c9960",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "a6214b9b8a06e815010b9cd562177fbc2663e722",
+      "ref": "539871cabbc36ac166363a1616c8bef8da8cb407",
       "required_for": ["standalone", "cluster"]
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "6b6526fc94470b76b37b5d5dd5c39c1db427f464",
+      "ref": "9e4ac33efd80dccff09e375cf4cbc309d7e877b9",
       "required_for": ["standalone", "cluster"]
     },
     "sdk": {
