@@ -1,6 +1,7 @@
 # Feature time and event identity contract
 
-This contract applies to the version-1 Kafka mutation envelope and feature catalog version 2.
+This contract applies to the version-1 Kafka mutation envelope and the current published feature catalog
+(v18).
 
 ## Time fields
 
@@ -18,10 +19,15 @@ This contract applies to the version-1 Kafka mutation envelope and feature catal
   `label_observation_cutoff`. Mutations arriving after that boundary cannot retrospectively add,
   update, or retract labels. Model manifests record this cutoff and label/materialization counts.
 - Spark owns distributed profile as-of joins and behaviour range aggregation and writes one aligned
-  user/candidate feature row per label. Rank-engine fits encoders only on the training time slice;
+  user/candidate feature row per label. The offline trainer fits encoders only on the training time slice;
   validation rows never contribute vocabularies, means, scales, or missing-value statistics.
 - Window boundaries are `[as_of - window, as_of]`. Online serving re-materializes recency and
-  window counts at feature-refresh time from the event-time histogram in the snapshot.
+  window counts at feature-refresh time. New `recentEventStats` buckets carry action
+  counts, value sums and price sums/counts, allowing short windows, conversion
+  ratios and commerce window means to decay too. The legacy
+  `recentEventTimeCounts` field supports only unfiltered day-window counts.
+  Old snapshots need producer replay/refresh; refreshing rank alone cannot recover
+  their missing window statistics.
 
 ## Identities
 
@@ -45,6 +51,8 @@ the same golden result.
 
 ## Compatibility
 
-`eventId` is additive and optional, so old clients remain readable. Catalog version 2 intentionally
-invalidates fitted version-1 feature spaces because correcting event identity changes feature
-values. Rank artifacts must be rebuilt before the new catalog is deployed.
+`eventId` is additive and optional, so old clients remain readable. The historical v2 identity correction invalidated v1 fitted spaces. Current
+spaces with selected-definition fingerprints tolerate unrelated catalog additions;
+legacy spaces still require an exact catalog match. `recentEventStats` is additive
+serving metadata, not a new logical feature definition. Deploy producer and
+consumer together and replay retained events to regenerate old Redis snapshots.

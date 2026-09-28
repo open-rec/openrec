@@ -71,5 +71,20 @@ for key, values in expected.items():
         if name == "event_recency_seconds":
             value=max(0, snapshot["asOfTime"] - values["event_last_time"])
         assert actual.get(name) == value, (key,name,value,actual.get(name))
-print("Kafka -> data-processor -> Redis feature parity passed")
+    # Online window refresh depends on these buckets, not just the snapshot values.
+    # Check their serialization and mutation retraction against the fixture windows.
+    buckets=snapshot.get("recentEventStats")
+    assert isinstance(buckets,dict) and buckets, (key,"missing recentEventStats")
+    now=snapshot["asOfTime"]
+    def aggregate(seconds, field):
+        return sum(bucket.get(field,0) for timestamp,bucket in buckets.items()
+                   if now-seconds <= int(timestamp) <= now)
+    for suffix,seconds in (("1d",86400),("7d",604800),("30d",2592000)):
+        name="event_count_"+suffix
+        assert aggregate(seconds,"count") == values[name], (key,name,buckets)
+    for suffix,seconds in (("5m",300),("1h",3600),("24h",86400)):
+        for name,field in (("event_expose_count_","count:expose"),
+                           ("event_value_sum_","value_sum")):
+            assert aggregate(seconds,field) == values[name+suffix], (key,name+suffix,buckets)
+print("Kafka -> data-processor -> Redis feature parity and online refresh buckets passed")
 PY

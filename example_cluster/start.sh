@@ -133,7 +133,12 @@ port_in_use() { (echo >/dev/tcp/127.0.0.1/"$1") >/dev/null 2>&1; }
 start_jar() {
   local name="$1" pid_file="$2" log_file="$3"
   shift 3
-  nohup "$@" >"${log_file}" 2>&1 &
+  # Detach from the invoking process group as well as its terminal when available.
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "$@" </dev/null >"${log_file}" 2>&1 &
+  else
+    nohup "$@" </dev/null >"${log_file}" 2>&1 &
+  fi
   local pid=$!
   echo "${pid}" >"${pid_file}"
   note "${name} started (pid ${pid}, log ${log_file})"

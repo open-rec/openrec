@@ -42,7 +42,8 @@ items = []
 for offset, suffix in enumerate(("a", "b", "c", "d")):
     items.append({"id": "%s_%s" % (prefix, suffix), "weight": 10,
                   "title": "Daily acceptance %s" % suffix, "category": "acceptance",
-                  "tags": "daily,acceptance", "scene": "scene_0",
+                  # Match the DAG's sparse-recall smoke query in the published corpus.
+                  "tags": "daily,acceptance,category_0", "scene": "scene_0",
                   "pubTime": str(epoch + offset), "modifyTime": str(epoch + offset),
                   "expireTime": str(epoch + 86400 * 30), "status": 1, "extFields": {}})
 sequences = {"user_0": ("a",), "%s_u1" % prefix: ("a", "b", "c"),
@@ -78,11 +79,13 @@ push event "${TMP_DIR}/events.json"
 
 note "Waiting for Spark streaming to persist the ${BUSINESS_DATE} Hive ODS partitions"
 for attempt in {1..120}; do
-  if docker exec namenode hdfs dfs -test -e "/openrec/hive/item/dt=${BUSINESS_DATE}" \
-      && docker exec namenode hdfs dfs -test -e "/openrec/hive/event/dt=${BUSINESS_DATE}"; then
-    break
-  fi
-  [[ "${attempt}" -lt 120 ]] || die "Hive ODS partitions did not appear within 120 seconds"
+  ready=true
+  for kind in item event; do
+    docker exec namenode hdfs dfs -cat "/openrec/hive/${kind}/dt=${BUSINESS_DATE}/*" 2>/dev/null \
+      | grep -F "${PREFIX}" >/dev/null || ready=false
+  done
+  [[ "${ready}" == true ]] && break
+  [[ "${attempt}" -lt 120 ]] || die "current recall fixtures did not reach Hive within 120 attempts"
   sleep 1
 done
 

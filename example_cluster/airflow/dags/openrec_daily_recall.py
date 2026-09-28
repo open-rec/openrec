@@ -89,7 +89,9 @@ def openrec_daily_recall():
             raise RuntimeError("%s publish failed: %s" % (algorithm, response))
         return {"algorithm": algorithm, "date": business_date, "revision": revision}
 
-    @task
+    # Newly activated indexes and rank batches may need a cold-start request.
+    # Keep checking all channels; retry transient latency just like bootstrap.
+    @task(retries=6, retry_delay=timedelta(seconds=10))
     def verify_aliases_and_online_recall(business_date, revision, algorithms):
         version = business_date.replace("-", "")
         for algorithm in (item for item in algorithms if item != "item_seq_emb"):

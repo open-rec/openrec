@@ -24,6 +24,7 @@ public class RedisUtil {
             JedisConnectionFactory jedisConnectionFactory = new JedisConnectionFactory();
             jedisConnectionFactory.setHostName(host);
             jedisConnectionFactory.setPort(port);
+            jedisConnectionFactory.afterPropertiesSet();
             RedisTemplate redisTemplate = new RedisTemplate();
             redisTemplate.setConnectionFactory(jedisConnectionFactory);
             redisTemplate.afterPropertiesSet();

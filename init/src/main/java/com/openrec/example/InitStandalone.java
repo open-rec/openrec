@@ -405,9 +405,14 @@ public class InitStandalone {
         log.info("init embedding data finished");
     }
 
+    static String bootstrapRecallIndexName(String kind, String version) {
+        // Reserve r000 for fixture imports; the scheduled publisher starts at r001.
+        return String.format("openrec-recall-%s-%s-r000", kind, version);
+    }
+
     private static void initEsRecallData(ElasticsearchClient esClient, String kind, String csvPath) {
         String version = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE);
-        String indexName = String.format("openrec-recall-%s-%s-r001", kind, version);
+        String indexName = bootstrapRecallIndexName(kind, version);
         String aliasName = String.format("openrec-recall-%s-active", kind);
         try {
             BooleanResponse aliasExists = esClient.indices().existsAlias(a -> a.name(aliasName));
@@ -478,7 +483,7 @@ public class InitStandalone {
 
     private static void initEsSparseData(ElasticsearchClient esClient) {
         String version = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE);
-        String indexName = "openrec-recall-sparse-" + version + "-r001";
+        String indexName = bootstrapRecallIndexName("sparse", version);
         String aliasName = "openrec-recall-sparse-active";
         try {
             BooleanResponse aliasExists = esClient.indices().existsAlias(a -> a.name(aliasName));
@@ -565,7 +570,7 @@ public class InitStandalone {
         if (args.length < 6 || args.length > 8) {
             log.error("Usage: java InitStandalone <redis_host> <redis_port> <es_host> <es_port> "
                     + "<es_user> <es_password> [data_dir] [model_dir]");
-            return;
+            throw new IllegalArgumentException("expected Redis/Elasticsearch connection arguments");
         }
 
         if (args.length == 7) {
@@ -578,7 +583,7 @@ public class InitStandalone {
         if (!Files.isDirectory(Paths.get(testDataDir))) {
             log.error("data dir not found: {}, please run it from the example repo root, "
                     + "or pass the data dir as the 7th argument", testDataDir);
-            return;
+            throw new IllegalArgumentException("data directory does not exist: " + testDataDir);
         }
         log.info("init data from dir: {}", testDataDir);
 
@@ -588,7 +593,7 @@ public class InitStandalone {
             initRedisData(redisHost, redisPort);
         } catch (Exception e) {
             log.error("init redis data failed! exception:{}", e.getMessage());
-            e.printStackTrace();
+            throw new IllegalStateException("Redis initialization failed", e);
         }
 
         try {
@@ -599,7 +604,7 @@ public class InitStandalone {
             initEsData(esHost, esPort, esUser, esPassword);
         } catch (Exception e) {
             log.error("init es data failed! exception:{}", e.getMessage());
-            e.printStackTrace();
+            throw new IllegalStateException("Elasticsearch initialization failed", e);
         }
         System.exit(0);
     }

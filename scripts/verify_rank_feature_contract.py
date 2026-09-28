@@ -142,6 +142,27 @@ def main():
         "PASS: training-only DAG preserves global scope and selected features "
         "through Spark runner for LR, FM, and LightGBM"
     )
+    # Cluster capabilities must round-trip through the same runner that the
+    # console invokes; encoder-only features must fail before Spark starts.
+    from algorithm.feature.feature_catalog import feature_catalog
+    capabilities = feature_catalog()
+    for model_type in ("lr", "fm", "lightgbm"):
+        roles = capabilities["training_models"][model_type]["item"]
+        assert not roles.get("session") and not roles.get("interaction")
+        config = dict(calls[-1][1], model_type=model_type, feature_selection={
+            **selection, "context": ["context.request_hour_sin"]})
+        command = rank_command(config)
+        assert json.loads(command[command.index("--feature-selection") + 1]) == config["feature_selection"]
+        for extra in ({"session": ["session.event_count"]},
+                      {"interaction": ["interaction.user_item_click_count_log"]},
+                      {"context": ["context.candidate_count"]}):
+            try:
+                rank_command(dict(config, feature_selection={**selection, **extra}))
+            except ValueError as error:
+                assert "unavailable in cluster training" in str(error)
+            else:
+                raise AssertionError("unmaterialized dynamic feature was accepted")
+    print("PASS: production capability gate accepts calendar context and rejects unavailable roles")
     verify_release_catalog_check()
 
 

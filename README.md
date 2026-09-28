@@ -129,6 +129,10 @@ Start cluster only on a host sized for the complete data platform:
 
 See the [cluster guide](example_cluster) for prerequisites, startup ownership, endpoints, failure
 diagnosis, and shutdown behavior.
+For the local image/mirror configuration, start cluster with `./example_cluster/start.sh --local`.
+Standalone startup does not need this flag.
+Sample recall imports reserve revision `r000`; scheduled daily publications start at `r001`.
+This keeps same-day fixture indexes separate from immutable offline releases.
 
 ## Distribution contents
 
