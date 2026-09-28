@@ -6,32 +6,32 @@
   "components": {
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
-      "ref": "59091f14c16213b5f7f0fed16f31405e8473fd3f",
+      "ref": "298c449bd8899f0ebee1f25727da389f8832fb6f",
       "required_for": ["standalone", "cluster"]
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "b86298695ab6dd208d1316478fe32365c7d5f3af",
+      "ref": "7b352e2c6be564fe33cda1115cf933b77c8e2621",
       "required_for": ["cluster"]
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "cb019b0af17699bdf3014c88bb332a7a208eb3c3",
+      "ref": "0fdc63e6da52cf6d5ec4cf3918b7e7fee2c1beb6",
       "required_for": ["cluster"]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "92f8c68d8800e597f06fc5bae4612b2aa71c9960",
+      "ref": "25276f5a9b59d0e1267da76e6bd9823ba1aecccb",
       "required_for": ["standalone", "cluster"]
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "539871cabbc36ac166363a1616c8bef8da8cb407",
+      "ref": "80b42de03254ed608751064aa33109bc18a5b42f",
       "required_for": ["standalone", "cluster"]
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "9e4ac33efd80dccff09e375cf4cbc309d7e877b9",
+      "ref": "e2182d148c469b2b006108c9df19797323deff23",
       "required_for": ["standalone", "cluster"]
     },
     "sdk": {
