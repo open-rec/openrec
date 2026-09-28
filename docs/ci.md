@@ -27,3 +27,8 @@ to a space-separated list when running `scripts/checkout-components.sh` to selec
 it is unset, the script continues to check out the complete manifest.
 Manifest branch refs are checked out as local tracking branches so a development workspace remains
 attached to its branch. Immutable commit and tag refs intentionally use detached HEAD mode.
+
+The quality Java compatibility build and feature parity gate share Maven settings and retry
+failed dependency transfers up to three total attempts, waiting 10 and 20 seconds between attempts.
+Each attempt forces Maven to recheck previously failed downloads (`-U`) and preserves console logs.
+Compilation and test failures are not retried. Persistent repository failures still fail the job.

@@ -3,19 +3,7 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="$(cd "${ROOT}/.." && pwd)"
-MAVEN_ARGS=(--batch-mode --no-transfer-progress)
-if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
-  MAVEN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
-fi
-
-if command -v mvn >/dev/null 2>&1; then
-  MVN="$(command -v mvn)"
-elif [[ -x "${WORKSPACE}/.tools/apache-maven-3.9.9/bin/mvn" ]]; then
-  MVN="${WORKSPACE}/.tools/apache-maven-3.9.9/bin/mvn"
-else
-  echo "error: Maven is required" >&2
-  exit 1
-fi
+source "${ROOT}/scripts/lib/maven.sh"
 if ! command -v javac >/dev/null 2>&1 && [[ -x "${WORKSPACE}/.tools/jdk8u462-b08/bin/javac" ]]; then
   export JAVA_HOME="${WORKSPACE}/.tools/jdk8u462-b08"
   export PATH="${JAVA_HOME}/bin:${PATH}"
@@ -40,15 +28,15 @@ rsync -a --no-owner --no-group --delete --exclude target/ \
 rsync -a --no-owner --no-group --delete --exclude target/ \
   "${ROOT}/web/" "${BUILD_ROOT}/example/web/"
 
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
 mkdir -p "${BUILD_ROOT}/rec-server/server/plugins"
 cp "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
   "${BUILD_ROOT}/rec-server/server/plugins/"
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl graph,proto,contrib test
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl server test \
   -Dtest=ServingGraphServiceTest,RecallStoreUnitTest,KafkaServiceUnitTest,ControllerAndServiceUnitTest
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/sdk/java-client/pom.xml" clean install
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/example/init/pom.xml" clean verify
-"${MVN}" "${MAVEN_ARGS[@]}" -f "${BUILD_ROOT}/example/web/pom.xml" clean verify
+run_maven -f "${BUILD_ROOT}/sdk/java-client/pom.xml" clean install
+run_maven -f "${BUILD_ROOT}/example/init/pom.xml" clean verify
+run_maven -f "${BUILD_ROOT}/example/web/pom.xml" clean verify
