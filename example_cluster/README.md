@@ -304,5 +304,5 @@ Application build output, Web Demo logs, and PID state are isolated under
 `example/example_cluster/.runtime/`. Airflow DAG source remains under
 `example/example_cluster/airflow/dags/` and is mounted read-only by the platform.
 
-The local global-feature lifecycle validation and host-specific disk settings are recorded in
-[the validation report](../docs/local-cluster-feature-validation.md).
+See the [distribution architecture](../docs/architecture.md#feature-and-model-lifecycle) for
+feature/model ownership and publication boundaries, and [CI](../docs/ci.md) for acceptance coverage.

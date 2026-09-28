@@ -29,7 +29,7 @@ flowchart TD
 | `rec-server` | Online recommendation and ingestion API | HTTP protocol, serving graph, recall store |
 | `rec-console` | Operator control plane | Recall/model/graph release APIs, Airflow integration |
 | `rec-algorithm` | Offline computation and artifact publication | Recall rows, features, model metadata |
-| `rank-engine` | Model loading, training support, online inference | Model artifact and inference API |
+| `rank-engine` | Model loading and online inference | Model artifact and inference API |
 | `data-processor` | Streaming mutation projections | Kafka envelope, Redis/HBase/Hive schemas |
 | `bigdata-platform` | Dependency lifecycle and observability | Service names, ports, volumes, health checks |
 | `sdk` | Application integration | Recommendation and push client contract |
@@ -75,6 +75,36 @@ sequenceDiagram
 
 The control plane does not execute recommendation traffic. It validates and changes versioned
 configuration or artifact pointers; online instances continue reading stable contracts.
+
+## Feature and model lifecycle
+
+The control plane separates the global feature catalog, offline training, and online deployment.
+Catalog registration describes capability, not observed data availability. The algorithm runner's
+`training_models` metadata determines which features the cluster training pipeline can materialize;
+encoder support alone does not make a feature trainable in that pipeline.
+
+Training follows `rec-console → Airflow → rec-algorithm Spark preparation → offline trainer`.
+Rank-engine loads and scores artifacts; it does not execute training. Training remains available
+when inference is stopped. Feature engineering, new data collection, and model adapters remain
+engineering tasks.
+
+Each model release binds its ordered source/candidate feature selection, selected-definition
+fingerprints, fitted encoders, training configuration, evaluation results, and weights. Training
+creates a retained immutable version without changing the active model. Publication is explicit
+and cannot override the trained selection. Rollback restores the original weights and encoders
+without refitting. The `global` artifact scope does not restrict recommendations to a scene named
+`global`; item and user ranking have separate deployment targets.
+
+New-format selected-definition fingerprints tolerate unrelated catalog additions while rejecting
+incompatible dependencies. Legacy artifacts retain their exact-catalog compatibility checks.
+Activation and feature refresh must preserve a consistent model/encoding snapshot. Missing-column
+checks do not establish per-entity completeness or freshness; individual missing values follow
+the fitted encoder's policy. See the [feature time contract](feature-time-contract.md) for temporal
+joins, event identity, and snapshot compatibility.
+
+Model management is enabled in cluster mode. Standalone retains monitoring, entity diagnostics,
+and serving-graph operations. Deploy companion components from `release/openrec.json` together,
+and retain a compatible model when rolling software back.
 
 ## Failure boundaries
 
