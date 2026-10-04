@@ -23,8 +23,10 @@ The SDK's independent protocol-source CI build also targets Java 21 and uses a c
 Lombok processor. The distribution manifest pins the companion rec-server and SDK commits;
 publish these before the distribution commit so fresh checkouts can resolve them.
 
-For an existing workspace with an unwritable Maven cache, set `OPENREC_MAVEN_REPO` to a writable
-directory when running `scripts/build-components.sh` or the cluster startup script.
+The build, cluster and standalone scripts check workspace Maven cache permissions, including nested
+artifacts. If it contains inaccessible paths, they use `.cache/maven-repository-<uid>` instead.
+Set `OPENREC_MAVEN_REPO` to select another writable directory; an inaccessible explicit cache
+fails early. Without a workspace cache or override, Maven retains its own default/settings.
 
 ## Compatibility and verification
 

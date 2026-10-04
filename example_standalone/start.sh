@@ -26,9 +26,11 @@ command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v rsync >/dev/null 2>&1 || die "rsync is required for the isolated Java build"
 command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
 
+source "${WORKSPACE}/example/scripts/lib/maven-repository.sh"
+openrec_setup_maven_repository
 MVN_ARGS=()
-if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
-  MVN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
+if [[ -n "${OPENREC_MAVEN_REPO:-}" ]]; then
+  MVN_ARGS+=("-Dmaven.repo.local=${OPENREC_MAVEN_REPO}")
 fi
 
 mkdir -p "${LOG_DIR}"

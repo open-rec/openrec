@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Shared Maven setup and bounded retries for dependency transport failures.
 MAVEN_ARGS=(--batch-mode --no-transfer-progress)
+source "$(dirname "${BASH_SOURCE[0]}")/maven-repository.sh"
+openrec_setup_maven_repository
 if [[ -n "${OPENREC_MAVEN_REPO:-}" ]]; then
   MAVEN_ARGS+=("-Dmaven.repo.local=${OPENREC_MAVEN_REPO}")
-elif [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
-  MAVEN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
 fi
 
 if command -v mvn >/dev/null 2>&1; then

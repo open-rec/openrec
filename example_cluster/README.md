@@ -121,8 +121,9 @@ Explicit
 `RANK_BASE_IMAGE` or `RANK_PIP_INDEX_URL` environment values still take precedence when a different
 local registry or package mirror is required.
 
-Set `OPENREC_MAVEN_REPO` to a writable Maven repository if the workspace cache belongs to a
-different user. On failure, startup preserves application, Airflow scheduler and streaming-job
+If the workspace Maven cache contains inaccessible files or directories, startup automatically
+uses `.cache/maven-repository-<uid>`. Set `OPENREC_MAVEN_REPO` to select another writable cache;
+an inaccessible explicit path fails the prerequisite check. On failure, startup preserves application, Airflow scheduler and streaming-job
 logs under `.runtime/logs/` before removing containers; GitHub CI uploads these logs.
 
 The cluster CI runs functional acceptance with `RECOMMEND_DEADLINE_MS=10000` and

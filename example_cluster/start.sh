@@ -85,11 +85,11 @@ command -v python3 >/dev/null 2>&1 || die "Python 3 is required"
 note "Ensuring deployable model artifacts match the raw sample data"
 "${WORKSPACE}/example/scripts/ensure-model-artifacts.sh"
 
+source "${WORKSPACE}/example/scripts/lib/maven-repository.sh"
+openrec_setup_maven_repository
 MVN_ARGS=()
 if [[ -n "${OPENREC_MAVEN_REPO:-}" ]]; then
   MVN_ARGS+=("-Dmaven.repo.local=${OPENREC_MAVEN_REPO}")
-elif [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
-  MVN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
 fi
 
 mkdir -p "${LOG_DIR}"
