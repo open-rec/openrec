@@ -118,6 +118,18 @@ Explicit
 `RANK_BASE_IMAGE` or `RANK_PIP_INDEX_URL` environment values still take precedence when a different
 local registry or package mirror is required.
 
+Set `OPENREC_MAVEN_REPO` to a writable Maven repository if the workspace cache belongs to a
+different user. On failure, startup preserves application, Airflow scheduler and streaming-job
+logs under `.runtime/logs/` before removing containers; GitHub CI uploads these logs.
+
+The cluster CI runs functional acceptance with `RECOMMEND_DEADLINE_MS=10000` and
+`OPENREC_GRAPH_NODE_TIMEOUT_MS=1000`, because all infrastructure shares the hosted runner.
+The latter raises shorter item/user graph node deadlines through the serving-graph API;
+it preserves larger deadlines, graph edges, recall configuration and failure policies.
+The checks still require nonempty recommendations, all required recall channels and rank scores.
+Normal startup retains the online graph deadlines and the 1000 ms request budget. To reproduce
+the CI budgets locally, pass both variables when invoking `start.sh --local`.
+
 The command performs the complete cold-start path:
 
 1. Builds and starts the `bigdata-platform` cluster preset, then runs its infrastructure smoke tests.

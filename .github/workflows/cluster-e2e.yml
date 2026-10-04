@@ -32,6 +32,10 @@ jobs:
       HIVESERVER2_HEAP: -Xmx768m
       ELASTIC_HEAP: -Xms1g -Xmx1g
       OPENREC_SPARK_TOTAL_EXECUTOR_CORES: '2'
+      # This job validates functionality while all platform services share one runner.
+      # Keep online latency targets separate from this resource-constrained check.
+      RECOMMEND_DEADLINE_MS: '10000'
+      OPENREC_GRAPH_NODE_TIMEOUT_MS: '1000'
     steps:
       - name: Reclaim hosted runner disk space
         run: |

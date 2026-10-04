@@ -47,6 +47,16 @@ die() { echo "error: $*" >&2; return 1; }
 cleanup_on_error() {
   local status=$?
   trap - ERR
+  # Compose down removes containers and their logs. Save the evidence first so
+  # the CI artifact still contains graph node failures and rank-engine errors.
+  local failure_dir="${LOG_DIR}/failure-$(date -u +%Y%m%dT%H%M%SZ)-${BASHPID}"
+  mkdir -p "${failure_dir}" || true
+  docker compose -f "${SCRIPT_DIR}/docker-compose.yml" logs --no-color \
+    >"${failure_dir}/business.log" 2>&1 || true
+  docker logs --tail 2000 airflow-scheduler \
+    >"${failure_dir}/airflow.log" 2>&1 || true
+  docker exec spark-master tail -n 500 "${SPARK_LOG_FILE}" \
+    >"${failure_dir}/data-processor.log" 2>&1 || true
   echo "startup failed; stopping services started by the OpenRec examples" >&2
   "${SCRIPT_DIR}/stop.sh" || true
   exit "${status}"
@@ -76,7 +86,9 @@ note "Ensuring deployable model artifacts match the raw sample data"
 "${WORKSPACE}/example/scripts/ensure-model-artifacts.sh"
 
 MVN_ARGS=()
-if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
+if [[ -n "${OPENREC_MAVEN_REPO:-}" ]]; then
+  MVN_ARGS+=("-Dmaven.repo.local=${OPENREC_MAVEN_REPO}")
+elif [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
   MVN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
 fi
 
@@ -272,6 +284,12 @@ wait_for_es_documents "embedding recall index" "scene_0-item-vector-index"
 
 note "Building and starting rec-server, rank-engine, rec-algorithm runner, and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
+
+if [[ -n "${OPENREC_GRAPH_NODE_TIMEOUT_MS:-}" ]]; then
+  note "Configuring graph deadlines for functional acceptance"
+  python3 "${WORKSPACE}/example/scripts/configure-functional-graph.py" \
+    --node-timeout-ms "${OPENREC_GRAPH_NODE_TIMEOUT_MS}"
+fi
 
 "${SCRIPT_DIR}/verify_feature_parity_e2e.sh"
 

@@ -180,13 +180,13 @@ def openrec_cluster_bootstrap():
     def rec_console_ready():
         _request("http://rec-console:8095/health")
 
-    @task
+    @task(retries=6, retry_delay=timedelta(seconds=10))
     def recommendation_warmup():
         # Warm rec-server's Elasticsearch TLS connection and client pools
         # outside the latency
         # assertion. Empty cold-start responses are acceptable here; the next
         # task validates the
-        # recommendation path with the normal online node deadlines unchanged.
+        # recommendation path with the deployment's configured node deadlines.
         exposure_key = "event:{user_0}:scene_0:expose"
         for attempt in range(5):
             _redis_command("DEL", exposure_key)
