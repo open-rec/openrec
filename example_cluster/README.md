@@ -98,6 +98,9 @@ and does not manage containers.
 
 ## quick start
 
+Install JDK 21 and set `JAVA_HOME` or `OPENREC_JAVA21_HOME` to its installation directory.
+All Java source builds and the Web Demo use this JDK; a second JDK is not required.
+
 From the workspace root:
 
 ```shell

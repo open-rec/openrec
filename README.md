@@ -19,7 +19,7 @@ provides a reproducible sample dataset and Web Demo, and owns cross-repository e
 
 ## Java migration prerequisites
 
-rec-server and web use JDK 21 / Spring Boot 4.1; data-processor uses JDK 21 with Spark 4.0.4
+rec-server and web use JDK 21 / Spring Boot 4.1.1; data-processor uses JDK 21 with Spark 4.0.4
 and Flink 2.2.1. SDK, init and all shared rec-server modules also target Java 21. Install JDK 21
 before invoking the source-build scripts:
 
