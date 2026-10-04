@@ -14,7 +14,7 @@
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "01c0d98173c37f253254be210f9b64ac9ecdda11",
+      "ref": "a70c004a545b1797a650cac3343ece95ce612fe0",
       "required_for": [
         "cluster"
       ]

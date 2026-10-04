@@ -8,8 +8,10 @@ SDK, init, web, and data-processor continue to run on Java 8. The console remain
 - rec-server `c4cc8df29eb066cce6b6c3073fbe641912fd50ae`: neutral Maven parent, Boot BOM confined
   to server, Java 8 compatible graph/proto/contrib, Jackson 3 application JSON, springdoc,
   updated Java 21 build/runtime images and CI.
-- data-processor `01c0d98173c37f253254be210f9b64ac9ecdda11`: declare the Flink module's Lombok
-  processor explicitly. No streaming runtime, feature formula, or checkpoint changes.
+- data-processor `a70c004a545b1797a650cac3343ece95ce612fe0`: declare the Flink module's Lombok
+  processor explicitly; build rec-proto in CI with Java 21, then run processor tests on Java 8.
+  The server parent formatter requires Java 17 or newer even when building Java 8 bytecode.
+  No streaming runtime, feature formula, or checkpoint changes.
 - example: declare init's Lombok processor, select Java 21 for the server build and Java 8 for
   consumers, provision both JDKs in CI, and add isolated HTTP acceptance.
 
