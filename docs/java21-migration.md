@@ -1,5 +1,8 @@
 # Java 21 migration: rec-server first
 
+> Historical migration record. Its dual-JDK steps are superseded by the
+> [single-JDK 21 build](java21-unified-build.md); previous test results below describe that phase.
+
 Validated on 2026-10-04. This phase upgrades rec-server to Java 21 and Spring Boot 4.1.1.
 At this phase SDK, init, web, and data-processor remained on Java 8. The console remains Python/React.
 The subsequent [processor/web migration](java21-processors-web-migration.md) upgrades web and streaming engines.
@@ -58,17 +61,17 @@ release regression or a controlled production-load performance comparison.
 
 ## Reproduce
 
-Set `OPENREC_JAVA21_HOME` and `OPENREC_JAVA8_HOME` to installed JDKs. Run Java commands in their
+For current sources, set `JAVA_HOME` to JDK 21. Run Java commands in their
 owning repository; use an isolated Maven repository for migration verification.
 
 ```bash
 # rec-server, with JAVA_HOME pointing to JDK 21
 mvn clean install
-mvn -pl graph,proto,contrib test -Djvm="$OPENREC_JAVA8_HOME/bin/java"
+mvn -pl graph,proto,contrib test
 
-# sdk/java-client, with JAVA_HOME pointing to JDK 8
+# sdk/java-client, with JAVA_HOME pointing to JDK 21
 mvn clean install
-# example/init, example/web, and data-processor, each with JDK 8
+# example/init, example/web, and data-processor, each with JDK 21
 mvn clean verify
 
 # example

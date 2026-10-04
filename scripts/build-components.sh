@@ -26,15 +26,15 @@ rsync -a --no-owner --no-group --delete --exclude target/ \
 rsync -a --no-owner --no-group --delete --exclude target/ \
   "${ROOT}/web/" "${BUILD_ROOT}/example/web/"
 
-run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
 mkdir -p "${BUILD_ROOT}/rec-server/server/plugins"
 cp "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
   "${BUILD_ROOT}/rec-server/server/plugins/"
-run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl graph,proto,contrib test
-run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl server test \
   -Dtest=ServingGraphServiceTest,RecallStoreUnitTest,KafkaServiceUnitTest,ControllerAndServiceUnitTest
 run_maven -f "${BUILD_ROOT}/sdk/java-client/pom.xml" clean install
 run_maven -f "${BUILD_ROOT}/example/init/pom.xml" clean verify
-run_maven21 -f "${BUILD_ROOT}/example/web/pom.xml" clean verify
+run_maven -f "${BUILD_ROOT}/example/web/pom.xml" clean verify

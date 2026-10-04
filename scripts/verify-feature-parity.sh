@@ -47,7 +47,7 @@ fi
 )
 (
   cd "${WORKSPACE}/data-processor"
-  run_maven21 -pl flink,spark -am test \
+  run_maven -pl flink,spark -am test \
     -Dtest=EventFeatureAccumulatorTest,FlinkFeatureParityTest,FlinkFeatureOperatorStateTest,SparkFeatureParityTest,SparkFeatureMicroBatchTest \
     -Dsurefire.failIfNoSpecifiedTests=false
 )

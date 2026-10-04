@@ -233,11 +233,11 @@ rsync -a --delete --exclude target/ "${WORKSPACE}/example/init/" "${BUILD_DIR}/e
 rsync -a --delete --exclude target/ "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
 
 note "Building SDK, feature processor, loader, and Web Demo"
-openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
-openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/data-processor/pom.xml" -pl spark -am clean package -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/data-processor/pom.xml" -pl spark -am clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
-openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
 
 note "Installing Hive daily-partition entity tables"
 docker cp "${BUILD_DIR}/data-processor/sql/openrec_entities.sql" hiveserver2:/tmp/openrec_entities.sql
@@ -297,7 +297,7 @@ run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%
 
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${OPENREC_JAVA21_HOME}/bin/java" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
   --server.port=12345 --demo.exposure-mode=viewport
 wait_for_url "Web Demo" http://127.0.0.1:12345/
 

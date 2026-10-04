@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rec-server, data-processor and web use Java 21; SDK/init retain Java 8 compatibility.
+# All OpenRec Java components build and run with Java 21.
 # Explicit homes take precedence; setup-java exports the *_X64 homes in CI.
 openrec_java_major() {
   "${1}/bin/java" -version 2>&1 | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n 1 | \
@@ -27,22 +27,8 @@ openrec_setup_java() {
   fi
   OPENREC_JAVA21_HOME="$(openrec_find_jdk 21 "${OPENREC_JAVA21_HOME:-}" \
     "${JAVA_HOME_21_X64:-}" "${JAVA_HOME:-}" "${path_home}" "${WORKSPACE}/.tools/jdk21")" || return 1
-  OPENREC_JAVA8_HOME="$(openrec_find_jdk 8 "${OPENREC_JAVA8_HOME:-}" \
-    "${JAVA_HOME_8_X64:-}" "${JAVA_HOME:-}" "${path_home}" "${WORKSPACE}/.tools/jdk8u462-b08")" || return 1
-  export OPENREC_JAVA21_HOME OPENREC_JAVA8_HOME
-  export JAVA_HOME="${OPENREC_JAVA8_HOME}"
+  export OPENREC_JAVA21_HOME
+  export JAVA_HOME="${OPENREC_JAVA21_HOME}"
   export PATH="${JAVA_HOME}/bin:${PATH}"
   JAVA="${JAVA_HOME}/bin/java"
 }
-
-openrec_maven21() (
-  export JAVA_HOME="${OPENREC_JAVA21_HOME}"
-  export PATH="${JAVA_HOME}/bin:${PATH}"
-  "${MVN}" "$@"
-)
-
-run_maven21() (
-  export JAVA_HOME="${OPENREC_JAVA21_HOME}"
-  export PATH="${JAVA_HOME}/bin:${PATH}"
-  run_maven "$@"
-)

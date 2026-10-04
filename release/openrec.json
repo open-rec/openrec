@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "2cb8da7c653d41f33271dcc9923eb9c20bd1ee08",
+      "ref": "fc74458aa3d0389dfa1d55693dd9e7dec7518083",
       "required_for": [
         "standalone",
         "cluster"
@@ -52,7 +52,7 @@
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
-      "ref": "b4641cb8ebee99c2aa355ad8ec02faa1147f2159",
+      "ref": "3fa1664033a7cbd3447f3a3ae7d59c6ffd38222c",
       "required_for": [
         "standalone",
         "cluster"

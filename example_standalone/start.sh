@@ -129,10 +129,10 @@ rsync -a --delete --exclude target/ \
   "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
 
 note "Building Java SDK, data loader, and Web Demo"
-openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
-openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
+"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
 
 note "Loading standalone sample data"
 (
@@ -251,7 +251,7 @@ web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"
 
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${OPENREC_JAVA21_HOME}/bin/java" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
   "--server.port=${web_port}"
 wait_for_url "Web Demo" "http://127.0.0.1:${web_port}/"
 echo "${web_port}" >"${STATE_DIR}/web.port"

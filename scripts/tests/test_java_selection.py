@@ -1,4 +1,4 @@
-"""Verify that the transitional build never runs old consumers with the server JDK."""
+"""Verify every source build and runtime selects the same Java 21 installation."""
 import os
 from pathlib import Path
 import subprocess
@@ -7,30 +7,32 @@ import unittest
 
 
 class JavaSelectionTest(unittest.TestCase):
-    def test_server_maven_uses_21_without_changing_consumer_java(self):
+    def test_only_java21_is_required_for_maven_and_runtime(self):
         helper = Path(__file__).resolve().parents[1] / "lib" / "java.sh"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for major in (8, 21):
-                binary = root / str(major) / "bin"
-                binary.mkdir(parents=True)
-                version = "1.8.0_462" if major == 8 else "21.0.12"
-                for name in ("java", "javac"):
-                    path = binary / name
-                    path.write_text(f'#!/bin/sh\necho \'openjdk version "{version}"\' >&2\n')
-                    path.chmod(0o755)
+            binary = root / "21" / "bin"
+            binary.mkdir(parents=True)
+            for name in ("java", "javac"):
+                path = binary / name
+                path.write_text('#!/bin/sh\necho \'openjdk version "21.0.12"\' >&2\n')
+                path.chmod(0o755)
             maven = root / "mvn"
             maven.write_text('#!/bin/sh\nprintf "%s\\n" "$JAVA_HOME"\n')
             maven.chmod(0o755)
-            env = dict(os.environ, WORKSPACE=directory,
-                       OPENREC_JAVA8_HOME=str(root / "8"),
-                       OPENREC_JAVA21_HOME=str(root / "21"), MVN=str(maven))
-            result = subprocess.run(
-                ["bash", "-eu", "-c", 'source "$1"; openrec_setup_java; '
-                 'openrec_maven21; printf "%s\\n" "$JAVA_HOME" "$JAVA"', "bash", str(helper)],
-                env=env, capture_output=True, text=True, check=True)
-            self.assertEqual(result.stdout.splitlines(),
-                             [str(root / "21"), str(root / "8"), str(root / "8/bin/java")])
+            for selector in ("OPENREC_JAVA21_HOME", "JAVA_HOME", "JAVA_HOME_21_X64"):
+                with self.subTest(selector=selector):
+                    env = dict(os.environ, WORKSPACE=directory, MVN=str(maven))
+                    for key in ("OPENREC_JAVA21_HOME", "JAVA_HOME", "JAVA_HOME_21_X64",
+                                "OPENREC_JAVA8_HOME", "JAVA_HOME_8_X64"):
+                        env.pop(key, None)
+                    env[selector] = str(root / "21")
+                    result = subprocess.run(
+                        ["bash", "-eu", "-c", 'source "$1"; openrec_setup_java; '
+                         '\"$MVN\"; printf "%s\\n" "$JAVA_HOME" "$JAVA"', "bash", str(helper)],
+                        env=env, capture_output=True, text=True, check=True)
+                    self.assertEqual(result.stdout.splitlines(),
+                                     [str(root / "21"), str(root / "21"), str(root / "21/bin/java")])
 
     def test_wrong_jdk_major_is_rejected(self):
         helper = Path(__file__).resolve().parents[1] / "lib" / "java.sh"

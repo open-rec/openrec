@@ -1,5 +1,8 @@
 # Java 21: streaming processors, shared engine images and web
 
+> Historical migration record. Its dual-JDK steps are superseded by the
+> [single-JDK 21 build](java21-unified-build.md); previous test results below describe that phase.
+
 This phase follows the rec-server migration. It upgrades application build/runtime requirements,
 not every independent storage daemon's JVM. The release manifest pins all companion repositories.
 
@@ -76,7 +79,7 @@ training/model-release regression or production-load benchmark is claimed.
 ## Existing installation rollout
 
 1. Publish SDK, data-processor, bigdata-platform and rec-algorithm companion commits before the
-   example manifest. Install both JDKs and set `OPENREC_JAVA21_HOME` / `OPENREC_JAVA8_HOME` for scripts.
+   example manifest. For current sources, install JDK 21 and set `OPENREC_JAVA21_HOME` for scripts.
 2. Build the new platform images and rebuild rec-algorithm from `openrec/spark:4.0.4`. All Spark
    drivers/workers/runners must use matching Spark and Scala versions. Do not submit the new jar
    to the old cluster or attach the old algorithm runner to the new master.

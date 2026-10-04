@@ -22,17 +22,11 @@ jobs:
         with:
           path: openrec/example
 
-      - name: Set up Java 21 for server, web and processors
+      - name: Set up Java 21 for all Java components
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Set up Java 8
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '8'
           cache: maven
 
       - name: Check out manifest components
@@ -67,7 +61,7 @@ jobs:
         working-directory: openrec/example
         run: python scripts/verify_sdk_feature_contract.py
 
-      - name: Build and test Java compatibility chain
+      - name: Build and test Java 21 components
         working-directory: openrec/example
         run: ./scripts/build-components.sh
 

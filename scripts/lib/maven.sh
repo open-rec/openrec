@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Shared Maven setup and bounded retries for dependency transport failures.
 MAVEN_ARGS=(--batch-mode --no-transfer-progress)
-if [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
+if [[ -n "${OPENREC_MAVEN_REPO:-}" ]]; then
+  MAVEN_ARGS+=("-Dmaven.repo.local=${OPENREC_MAVEN_REPO}")
+elif [[ -d "${WORKSPACE}/.cache/maven-repository" ]]; then
   MAVEN_ARGS+=("-Dmaven.repo.local=${WORKSPACE}/.cache/maven-repository")
 fi
 
