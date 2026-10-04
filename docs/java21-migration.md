@@ -15,8 +15,9 @@ SDK, init, web, and data-processor continue to run on Java 8. The console remain
 - example: declare init's Lombok processor, select Java 21 for the server build and Java 8 for
   consumers, provision both JDKs in CI, and add isolated HTTP acceptance.
 
-The component commits and this distribution commit are local until published. Publish companion
-components first, then the distribution; the manifest retains immutable refs. HTTP/Kafka contract
+The companion component commits were published on 2026-10-04 before the distribution update.
+For subsequent releases, publish components first, then the distribution; the manifest retains
+immutable refs. HTTP/Kafka contract
 versions stay at 1. Java 8 consumers need the accompanying direct Lombok dependency declarations
 because rec-proto no longer exports its annotation processor as a runtime dependency.
 
