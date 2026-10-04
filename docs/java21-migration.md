@@ -1,7 +1,8 @@
 # Java 21 migration: rec-server first
 
 Validated on 2026-10-04. This phase upgrades rec-server to Java 21 and Spring Boot 4.1.1.
-SDK, init, web, and data-processor continue to run on Java 8. The console remains Python/React.
+At this phase SDK, init, web, and data-processor remained on Java 8. The console remains Python/React.
+The subsequent [processor/web migration](java21-processors-web-migration.md) upgrades web and streaming engines.
 
 ## Companion changes
 

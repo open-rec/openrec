@@ -11,8 +11,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.openrec.example.web.model.ItemView;
 import com.openrec.example.web.model.ScoredId;
 import com.openrec.proto.model.Item;
@@ -32,7 +33,7 @@ public class ItemService {
     private static final String ITEM_KEY = "item:{%s}";
 
     private final ObjectMapper mapper =
-        new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
     @Autowired
     private StringRedisTemplate redis;

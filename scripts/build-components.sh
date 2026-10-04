@@ -37,4 +37,4 @@ run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -Dtest=ServingGraphServiceTest,RecallStoreUnitTest,KafkaServiceUnitTest,ControllerAndServiceUnitTest
 run_maven -f "${BUILD_ROOT}/sdk/java-client/pom.xml" clean install
 run_maven -f "${BUILD_ROOT}/example/init/pom.xml" clean verify
-run_maven -f "${BUILD_ROOT}/example/web/pom.xml" clean verify
+run_maven21 -f "${BUILD_ROOT}/example/web/pom.xml" clean verify

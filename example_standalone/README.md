@@ -31,7 +31,7 @@ The diagram is deployment-level. The recall, filtering, combination, and operati
 
 ## Prerequisites and layout
 
-Install Docker with the Compose plugin, JDK 8, and Maven 3.6+. Keep the component repositories in
+Install Docker with the Compose plugin, JDK 21 and JDK 8, and Maven 3.6+. Keep the component repositories in
 the workspace layout used by this project:
 
 ```text
@@ -66,7 +66,7 @@ Run the complete chain from infrastructure through the visual demo:
 ./example/example_standalone/start.sh
 ```
 
-The script requires JDK 8, starts and checks the standalone infrastructure, builds the Java client
+The script requires JDK 21 for web/server and JDK 8 for SDK/init, starts and checks the standalone infrastructure, builds the Java client
 components, imports the bundled sample entities, behavior, and recall datasets, builds and starts
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.

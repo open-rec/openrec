@@ -50,7 +50,7 @@ jobs:
           path: openrec/example
           clean: true
 
-      - name: Set up Java 21 for rec-server
+      - name: Set up Java 21 for server, web and processors
         uses: actions/setup-java@v5
         with:
           distribution: temurin

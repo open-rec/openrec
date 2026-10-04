@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# During the server migration, consumers still build/run on Java 8.
+# rec-server, data-processor and web use Java 21; SDK/init retain Java 8 compatibility.
 # Explicit homes take precedence; setup-java exports the *_X64 homes in CI.
 openrec_java_major() {
   "${1}/bin/java" -version 2>&1 | sed -n 's/.*version "\([^"]*\)".*/\1/p' | head -n 1 | \

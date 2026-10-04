@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 source "${SCRIPT_DIR}/lib/maven.sh"
+source "${SCRIPT_DIR}/lib/java.sh"
+openrec_setup_java
 
 CATALOG_PUBLISHER="${WORKSPACE}/model/feature/catalog/publish_catalog.py"
 ALGORITHM_CATALOG="${WORKSPACE}/rec-algorithm/algorithm/feature/definitions/feature.catalog.json"
@@ -45,7 +47,7 @@ fi
 )
 (
   cd "${WORKSPACE}/data-processor"
-  run_maven -pl flink,spark -am test \
+  run_maven21 -pl flink,spark -am test \
     -Dtest=EventFeatureAccumulatorTest,FlinkFeatureParityTest,FlinkFeatureOperatorStateTest,SparkFeatureParityTest,SparkFeatureMicroBatchTest \
     -Dsurefire.failIfNoSpecifiedTests=false
 )

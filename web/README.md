@@ -29,7 +29,8 @@ whole recommendation chain and starts this demo last on port 12345.
 
 ```shell
 cd example/web
-mvn clean package -DskipTests
+# JDK 21 / Spring Boot 4.1.1
+mvn clean verify
 java -jar target/rec-example-web-1.0-SNAPSHOT.jar
 ```
 
@@ -40,7 +41,7 @@ Anything in `src/main/resources/application.properties` can be overridden on the
 ```shell
 java -jar target/rec-example-web-1.0-SNAPSHOT.jar \
   --rec.server.endpoint=http://127.0.0.1:13579 \
-  --spring.redis.host=127.0.0.1 \
+  --spring.data.redis.host=127.0.0.1 \
   --demo.user-id=user_0 \
   --demo.scene=scene_0
 ```
