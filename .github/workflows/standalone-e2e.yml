@@ -26,6 +26,9 @@ jobs:
   acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      RECOMMEND_DEADLINE_MS: '10000'
+      OPENREC_GRAPH_NODE_TIMEOUT_MS: '1000'
     steps:
       - name: Check out distribution
         uses: actions/checkout@v7

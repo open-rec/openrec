@@ -71,11 +71,21 @@ components, imports the bundled sample entities, behavior, and recall datasets, 
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.
 The smoke request explicitly routes to the default experiment and verifies `item_cf_i2i`,
-`content_i2i`, `user_cf_u2i`, `item_seq_emb`, and hot
+`content_i2i`, `user_cf_u2i`, `item_seq_emb`, `sparse`, and hot
 results from its `WeightedChannelOperationRule` while bypassing Rank and Kafka. It intentionally
 does not require `new`, whose online item supply belongs to the application.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
 either application port is already occupied.
+
+Cold recommendation requests can fail while Elasticsearch connections initialize. Startup retries
+HTTP failures within its bounded warmup/smoke loops and records response bodies in
+`.runtime/logs/recommendation.log`. Exhausted retries, missing recall channels, and unexpected
+rank scores still fail startup.
+
+GitHub's standalone functional acceptance uses `RECOMMEND_DEADLINE_MS=10000` and
+`OPENREC_GRAPH_NODE_TIMEOUT_MS=1000`, matching cluster CI's shared-runner budgets. To reproduce
+these settings locally, pass both variables to `start.sh`. Without these overrides, the normal
+1000 ms request deadline and packaged node deadlines remain in effect.
 
 Java components are built from current sources in an isolated `.runtime/build` tree. This avoids
 permission or stale-artifact problems when repository `target/` directories were created in a

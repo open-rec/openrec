@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "b8184cca95ed640380072c5fe02090ea19cd2ea6",
+      "ref": "f8fe17768fa621664f8a628f5f251aeb54966db4",
       "required_for": [
         "standalone",
         "cluster"

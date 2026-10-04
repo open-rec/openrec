@@ -183,71 +183,11 @@ note "rec-server is ready: http://127.0.0.1:13579"
 note "rec-console is ready: http://127.0.0.1:8095"
 
 note "Verifying the complete standalone recommendation chain"
-recommend_response=""
-recommend_ok=false
-recommend() {
-  local request_id="$1"
-  curl --noproxy '*' -fsS -X POST \
-    http://127.0.0.1:13579/api/recommend \
-    -H 'Content-Type: application/json' \
-    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\",\"query\":\"item\"}}}"
-}
-
-# The health endpoint does not initialize rec-server's Elasticsearch TLS connection or search
-# client. On a constrained CI runner those first requests can exceed the normal online node
-# deadlines and leave the timeout pool busy briefly. Warm the complete graph before asserting its
-# latency-sensitive output, just as the cluster bootstrap does.
-for attempt in 1 2 3 4 5; do
-  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
-  recommend_response="$(recommend "standalone-warmup-${attempt}")"
-  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
-  if python3 -c '
-import json, sys
-results = (json.load(sys.stdin).get("data") or {}).get("results") or []
-raise SystemExit(0 if results else 1)
-' <<<"${recommend_response}"; then
-    break
-  fi
-  sleep 2
-done
-
-for attempt in 1 2 3 4 5 6; do
-  # A previous smoke request must not affect this attempt through the expose filter.
-  docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
-  recommend_response="$(recommend "standalone-smoke-${attempt}")"
-  if python3 -c '
-import json, sys
-response = json.load(sys.stdin)
-results = (response.get("data") or {}).get("results") or []
-channels = {item.get("recallFrom") for item in results if item.get("recallFrom")}
-for item in results:
-    channels.update((item.get("recallScores") or {}).keys())
-required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse", "hot"}
-missing = required - channels
-if missing:
-    raise SystemExit("missing channels: %s" % ",".join(sorted(missing)))
-' <<<"${recommend_response}"; then
-    recommend_ok=true
-  else
-    recommend_ok=false
-  fi
-  [[ "${recommend_ok}" == true ]] && break
-  # Let timed-out cold searches leave the graph executor before starting another assertion.
-  sleep 10
-done
-docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
-[[ "${recommend_ok}" == true ]] \
-  || die "default weighted-channel smoke missed an enabled recall channel: ${recommend_response}"
-# A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
-# logging level and asynchronous flushing can hide that line even though ranking was skipped.
-if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
-  die "standalone recommendation unexpectedly used rank scores: ${recommend_response}"
+if [[ -n "${OPENREC_GRAPH_NODE_TIMEOUT_MS:-}" ]]; then
+  python3 "${WORKSPACE}/example/scripts/configure-functional-graph.py" \
+    --node-timeout-ms "${OPENREC_GRAPH_NODE_TIMEOUT_MS}"
 fi
-if docker logs rec-server 2>&1 \
-    | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
-  die "standalone log contains an unexpected Rank or Kafka service call"
-fi
-note "Default weighted-channel smoke passed: item-CF, content, UserCF, embedding, and hot are present; new-item supply is time-dependent; Rank and Kafka are bypassed"
+source "${WORKSPACE}/example/scripts/lib/standalone-recommendation.sh"
 
 web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"
