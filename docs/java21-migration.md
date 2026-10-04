@@ -90,10 +90,19 @@ The validated image is `openrec/rec-server:latest` / `openrec/rec-server:jdk21`,
 The previous image is retained as `openrec/rec-server:pre-jdk21-20261004`, image ID
 `71b4c9c7c94e13acfb4956033f7402ca52da37ad36e9763362e7546719c857d7`.
 
-Updating the tag does not change an already running container. The existing shared rec-server
-container was not recreated during isolated verification. To roll out, recreate only rec-server
-in its existing Compose project with `--no-deps --no-build`; verify `/health`, `/v3/api-docs`,
-`/actuator/prometheus`, graph status and an actual recommendation after restart.
+The running cluster rec-server was recreated on 2026-10-04 with the validated image:
+
+```bash
+docker compose -p openrec-cluster-apps -f example_cluster/docker-compose.yml \
+  up -d --no-deps --no-build --force-recreate --wait --wait-timeout 180 rec-server
+```
+
+The container reports Temurin 21.0.11 and is healthy. Health, OpenAPI and JVM metrics passed;
+item/user serving graphs match the saved pre-restart graphs. Other running container IDs remained
+unchanged. The first three recommendation probes returned HTTP 500 due to recall/rank node timeouts
+during warm-up. The following 13 consecutive requests succeeded with 10 results each; all graph
+nodes, including rank, succeeded in the final 10 requests. This is a rollout smoke check, not a
+load test. The health endpoint alone does not establish that recommendation dependencies are warm.
 
 To roll back, retag the saved image as `openrec/rec-server:latest` and recreate only rec-server
 with `--no-deps --no-build`. Keep the matching source/config revisions. Do not delete platform
