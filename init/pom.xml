@@ -14,6 +14,13 @@
     </properties>
 
     <dependencies>
+        <!-- Annotation processing is a direct build dependency, not a rec-proto runtime dependency. -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.40</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>com.openrec</groupId>
             <artifactId>rec-client</artifactId>

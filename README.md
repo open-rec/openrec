@@ -17,6 +17,22 @@ provides a reproducible sample dataset and Web Demo, and owns cross-repository e
 > release for reproducible deployments; the supplied cluster Compose is an integration/reference
 > topology and requires security and HA work before production use.
 
+## Java migration prerequisites
+
+The rec-server migration uses JDK 21 / Spring Boot 4.1; SDK, init, web, and streaming consumers
+remain on JDK 8 during this phase. Install both JDKs before invoking the source-build scripts:
+
+```bash
+export OPENREC_JAVA21_HOME=/path/to/jdk-21
+export OPENREC_JAVA8_HOME=/path/to/jdk-8
+```
+
+The scripts use Java 21 only for rec-server and its shared artifacts, and Java 8 for existing
+consumers. GitHub Actions provisions both versions. The rec-server Dockerfile independently
+builds and runs on Java 21. The companion commits are recorded in `release/openrec.json`. Publish those component commits
+before publishing this distribution commit so a fresh checkout can resolve the manifest.
+See [Java 21 migration validation](docs/java21-migration.md) for validation and rollback details.
+
 ## What this repository guarantees
 
 - `release/openrec.json` records the exact component refs composing this distribution.

@@ -7,37 +7,56 @@
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
       "ref": "298c449bd8899f0ebee1f25727da389f8832fb6f",
-      "required_for": ["standalone", "cluster"]
+      "required_for": [
+        "standalone",
+        "cluster"
+      ]
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "7b352e2c6be564fe33cda1115cf933b77c8e2621",
-      "required_for": ["cluster"]
+      "ref": "01c0d98173c37f253254be210f9b64ac9ecdda11",
+      "required_for": [
+        "cluster"
+      ]
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
       "ref": "0fdc63e6da52cf6d5ec4cf3918b7e7fee2c1beb6",
-      "required_for": ["cluster"]
+      "required_for": [
+        "cluster"
+      ]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
       "ref": "25276f5a9b59d0e1267da76e6bd9823ba1aecccb",
-      "required_for": ["standalone", "cluster"]
+      "required_for": [
+        "standalone",
+        "cluster"
+      ]
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
       "ref": "80b42de03254ed608751064aa33109bc18a5b42f",
-      "required_for": ["standalone", "cluster"]
+      "required_for": [
+        "standalone",
+        "cluster"
+      ]
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "e2182d148c469b2b006108c9df19797323deff23",
-      "required_for": ["standalone", "cluster"]
+      "ref": "c4cc8df29eb066cce6b6c3073fbe641912fd50ae",
+      "required_for": [
+        "standalone",
+        "cluster"
+      ]
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
       "ref": "af57523ec6a62e77284bba948ec9cae37b0f9f14",
-      "required_for": ["standalone", "cluster"]
+      "required_for": [
+        "standalone",
+        "cluster"
+      ]
     }
   },
   "contracts": {

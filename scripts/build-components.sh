@@ -4,10 +4,8 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="$(cd "${ROOT}/.." && pwd)"
 source "${ROOT}/scripts/lib/maven.sh"
-if ! command -v javac >/dev/null 2>&1 && [[ -x "${WORKSPACE}/.tools/jdk8u462-b08/bin/javac" ]]; then
-  export JAVA_HOME="${WORKSPACE}/.tools/jdk8u462-b08"
-  export PATH="${JAVA_HOME}/bin:${PATH}"
-fi
+source "${ROOT}/scripts/lib/java.sh"
+openrec_setup_java
 
 for path in rec-server sdk/java-client; do
   [[ -f "${WORKSPACE}/${path}/pom.xml" ]] || {
@@ -28,13 +26,13 @@ rsync -a --no-owner --no-group --delete --exclude target/ \
 rsync -a --no-owner --no-group --delete --exclude target/ \
   "${ROOT}/web/" "${BUILD_ROOT}/example/web/"
 
-run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
+run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
 mkdir -p "${BUILD_ROOT}/rec-server/server/plugins"
 cp "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
   "${BUILD_ROOT}/rec-server/server/plugins/"
-run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl graph,proto,contrib test
-run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
+run_maven21 -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl server test \
   -Dtest=ServingGraphServiceTest,RecallStoreUnitTest,KafkaServiceUnitTest,ControllerAndServiceUnitTest
 run_maven -f "${BUILD_ROOT}/sdk/java-client/pom.xml" clean install

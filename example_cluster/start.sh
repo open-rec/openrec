@@ -62,19 +62,10 @@ if command -v mvn >/dev/null 2>&1; then
 else
   MVN="${WORKSPACE}/.tools/apache-maven-3.9.9/bin/mvn"
 fi
-if [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
-  JAVA="${JAVA_HOME}/bin/java"
-elif command -v java >/dev/null 2>&1 && command -v javac >/dev/null 2>&1; then
-  JAVA="$(command -v java)"
-else
-  export JAVA_HOME="${WORKSPACE}/.tools/jdk8u462-b08"
-  export PATH="${JAVA_HOME}/bin:${PATH}"
-  JAVA="${JAVA_HOME}/bin/java"
-fi
+source "${WORKSPACE}/example/scripts/lib/java.sh"
+openrec_setup_java
+[[ -x "${MVN}" ]] || die "Maven not found; install Maven 3.9+ or place it under .tools"
 
-[[ -x "${MVN}" ]] || die "Maven not found; install Maven 3.6+ or place it under .tools"
-[[ -x "${JAVA}" ]] || die "Java not found; install JDK 8"
-"${JAVA}" -version 2>&1 | head -n 1 | grep -Eq 'version "1\.8\.' || die "JDK 8 is required"
 command -v docker >/dev/null 2>&1 || die "Docker is required"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 command -v curl >/dev/null 2>&1 || die "curl is required"
@@ -230,7 +221,7 @@ rsync -a --delete --exclude target/ "${WORKSPACE}/example/init/" "${BUILD_DIR}/e
 rsync -a --delete --exclude target/ "${WORKSPACE}/example/web/" "${BUILD_DIR}/example/web/"
 
 note "Building SDK, feature processor, loader, and Web Demo"
-"${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
+openrec_maven21 "${MVN_ARGS[@]}" -f "${BUILD_DIR}/rec-server/pom.xml" -pl proto -am clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/sdk/java-client/pom.xml" clean install -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/data-processor/pom.xml" -pl spark -am clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
