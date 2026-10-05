@@ -34,6 +34,9 @@ before publishing this distribution commit so a fresh checkout can resolve the m
 See [single-JDK migration](docs/java21-unified-build.md) for the current build requirements and
 [server migration](docs/java21-migration.md) and [processor/web migration](docs/java21-processors-web-migration.md) for validation and rollback details.
 
+See [recommendation readiness](docs/recommendation-readiness.md) for startup warmup, traffic admission
+and the required companion versions.
+
 ## What this repository guarantees
 
 - `release/openrec.json` records the exact component refs composing this distribution.

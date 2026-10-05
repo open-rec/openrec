@@ -45,22 +45,22 @@ print('200')
                  "test", str(HELPER)], env=env, capture_output=True, text=True)
             return result, int((root / "count").read_text()), (root / "recommendation.log").read_text()
 
-    def test_http_500_during_warmup_and_smoke_recovers(self):
-        result, count, log = self.run_case([1, 3])
+    def test_transient_http_500_during_smoke_recovers(self):
+        result, count, log = self.run_case([1])
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(count, 4)
+        self.assertEqual(count, 2)
         self.assertIn("graph produced no result", log)
 
     def test_persistent_http_500_fails_after_bounded_retries(self):
         result, count, log = self.run_case(list(range(1, 12)))
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(count, 11)
+        self.assertEqual(count, 6)
         self.assertIn("smoke 6", log)
 
     def test_missing_channel_is_still_rejected(self):
         result, count, _ = self.run_case([], CHANNELS[:-1])
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(count, 7)
+        self.assertEqual(count, 6)
         self.assertIn("missing channels: hot", result.stderr)
 
     def test_rank_scores_are_still_rejected(self):

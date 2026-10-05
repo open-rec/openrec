@@ -6,7 +6,7 @@
   "components": {
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
-      "ref": "ff6f71bdf42ea2d121a31f75b61a4908b451a95f",
+      "ref": "f592877a234d795254a948144dabf6b1dae1bf06",
       "required_for": [
         "standalone",
         "cluster"
@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "f8fe17768fa621664f8a628f5f251aeb54966db4",
+      "ref": "b47162603fc87ed9d35a7d913bf4839d64338491",
       "required_for": [
         "standalone",
         "cluster"
@@ -62,6 +62,7 @@
   "contracts": {
     "recommendation_api": 1,
     "kafka_mutation_envelope": 1,
-    "release_manifest": 1
+    "release_manifest": 1,
+    "recommendation_readiness": 1
   }
 }

@@ -282,6 +282,8 @@ for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
 done
 wait_for_es_documents "embedding recall index" "scene_0-item-vector-index"
 
+export RECOMMEND_WARMUP_USER_ID=user_0
+export RECOMMEND_WARMUP_SCENE=scene_0
 note "Building and starting rec-server, rank-engine, rec-algorithm runner, and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait --wait-timeout 300
 

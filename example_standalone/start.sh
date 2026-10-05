@@ -175,11 +175,13 @@ for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i sparse; do
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"
 done
 
+export RECOMMEND_WARMUP_USER_ID="${smoke_user}"
+export RECOMMEND_WARMUP_SCENE=scene_0
 note "Building and starting the standalone rec-server and rec-console containers"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --build --wait
 wait_for_url "rec-server" http://127.0.0.1:13579/health
 wait_for_url "rec-console" http://127.0.0.1:8095/health
-note "rec-server is ready: http://127.0.0.1:13579"
+note "rec-server process is healthy; recommendation warmup is pending"
 note "rec-console is ready: http://127.0.0.1:8095"
 
 note "Verifying the complete standalone recommendation chain"
@@ -187,6 +189,8 @@ if [[ -n "${OPENREC_GRAPH_NODE_TIMEOUT_MS:-}" ]]; then
   python3 "${WORKSPACE}/example/scripts/configure-functional-graph.py" \
     --node-timeout-ms "${OPENREC_GRAPH_NODE_TIMEOUT_MS}"
 fi
+python3 "${WORKSPACE}/example/scripts/wait-recommendation-ready.py" --user-id "${smoke_user}"
+note "rec-server recommendation is ready: http://127.0.0.1:13579"
 source "${WORKSPACE}/example/scripts/lib/standalone-recommendation.sh"
 
 web_port=12345

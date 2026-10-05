@@ -134,6 +134,13 @@ The checks still require nonempty recommendations, all required recall channels 
 Normal startup retains the online graph deadlines and the 1000 ms request budget. To reproduce
 the CI budgets locally, pass both variables when invoking `start.sh --local`.
 
+The bootstrap DAG requests authenticated server-side recommendation warmup, then waits for
+`/ready` before its recommendation smoke task. Warmup has independent request/node budgets and
+must be followed by three successful rounds with the deployment's normal budgets. Probes do not
+write synthetic exposures. `/health` remains a liveness check so data import, graph activation and
+model preparation can complete while recommendation traffic is blocked with 503. The configured
+fixture user also enables automatic warmup after a rec-server container restart.
+
 The command performs the complete cold-start path:
 
 1. Builds and starts the `bigdata-platform` cluster preset, then runs its infrastructure smoke tests.

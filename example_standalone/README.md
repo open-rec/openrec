@@ -77,10 +77,12 @@ does not require `new`, whose online item supply belongs to the application.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
 either application port is already occupied.
 
-Cold recommendation requests can fail while Elasticsearch connections initialize. Startup retries
-HTTP failures within its bounded warmup/smoke loops and records response bodies in
-`.runtime/logs/recommendation.log`. Exhausted retries, missing recall channels, and unexpected
-rank scores still fail startup.
+Startup configures automatic server-side warmup using the fixture user, then waits for `/ready`.
+The server first uses an independent warmup budget, then requires three consecutive complete
+recommendation rounds under normal budgets. Probes do not write synthetic exposure records.
+Until this finishes, business recommendation requests return 503 while `/health` remains available.
+The Web Demo starts only after readiness and the strict recall-channel/Rank/Kafka smoke checks pass.
+Smoke response bodies are recorded in `.runtime/logs/recommendation.log`.
 
 GitHub's standalone functional acceptance uses `RECOMMEND_DEADLINE_MS=10000` and
 `OPENREC_GRAPH_NODE_TIMEOUT_MS=1000`, matching cluster CI's shared-runner budgets. To reproduce

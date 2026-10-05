@@ -5,10 +5,12 @@ network protocols, so the Airflow scheduler needs no Docker socket.
 """
 
 import json
+import os
 import socket
 import ssl
 import time
 import urllib.request
+import urllib.error
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -182,24 +184,28 @@ def openrec_cluster_bootstrap():
 
     @task(retries=6, retry_delay=timedelta(seconds=10))
     def recommendation_warmup():
-        # Warm rec-server's Elasticsearch TLS connection and client pools
-        # outside the latency
-        # assertion. Empty cold-start responses are acceptable here; the next
-        # task validates the
-        # recommendation path with the deployment's configured node deadlines.
-        exposure_key = "event:{user_0}:scene_0:expose"
-        for attempt in range(5):
-            _redis_command("DEL", exposure_key)
+        # The server uses an independent cold-start budget, then verifies normal budgets.
+        _request(
+            "http://%s:13579/internal/recommendation-warmup" % REC_SERVER,
+            method="POST",
+            headers={"Content-Type": "application/json", "X-OpenRec-Token":
+                     os.environ.get("SERVING_GRAPH_TOKEN", "openrec-serving-graph-token-change-me")},
+            body=[{"userId": "user_0", "scene": "scene_0", "size": 12, "type": "click",
+                   "targetType": "item", "params": {"ab": "default", "query": "item"}}],
+        )
+        for _ in range(150):
             try:
-                response = _recommendation_request(
-                    "airflow-cluster-warmup-%d-%s"
-                    % (attempt, uuid.uuid4().hex)
-                )
-            finally:
-                _redis_command("DEL", exposure_key)
-            if (response.get("data") or response).get("results"):
+                status = _request("http://%s:13579/ready" % REC_SERVER)
+            except urllib.error.HTTPError as error:
+                if error.code != 503:
+                    raise
+                status = json.loads(error.read())
+            if status.get("ready") is True:
                 return
-            time.sleep(1)
+            if status.get("state") == "FAILED":
+                raise RuntimeError("recommendation warmup failed: %s" % status)
+            time.sleep(2)
+        raise RuntimeError("recommendation readiness timed out")
 
     @task(retries=6, retry_delay=timedelta(seconds=10))
     def recommendation_smoke():
