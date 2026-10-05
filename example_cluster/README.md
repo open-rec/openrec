@@ -130,7 +130,8 @@ The cluster CI runs functional acceptance with `RECOMMEND_DEADLINE_MS=10000` and
 `OPENREC_GRAPH_NODE_TIMEOUT_MS=1000`, because all infrastructure shares the hosted runner.
 The latter raises shorter item/user graph node deadlines through the serving-graph API;
 it preserves larger deadlines, graph edges, recall configuration and failure policies.
-The checks still require nonempty recommendations, all required recall channels and rank scores.
+The checks require nonempty recommendations and rank scores. Required recall channels are verified
+using successful, nonempty pre-selection `recallDiagnostics`, not membership in the final top-N.
 Normal startup retains the online graph deadlines and the 1000 ms request budget. To reproduce
 the CI budgets locally, pass both variables when invoking `start.sh --local`.
 

@@ -81,7 +81,8 @@ Startup configures automatic server-side warmup using the fixture user, then wai
 The server first uses an independent warmup budget, then requires three consecutive complete
 recommendation rounds under normal budgets. Probes do not write synthetic exposure records.
 Until this finishes, business recommendation requests return 503 while `/health` remains available.
-The Web Demo starts only after readiness and the strict recall-channel/Rank/Kafka smoke checks pass.
+The Web Demo starts only after readiness and the recall-node/Rank/Kafka smoke checks pass.
+Recall availability uses pre-selection `recallDiagnostics`; final results need not cover every channel.
 Smoke response bodies are recorded in `.runtime/logs/recommendation.log`.
 
 GitHub's standalone functional acceptance uses `RECOMMEND_DEADLINE_MS=10000` and

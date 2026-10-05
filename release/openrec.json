@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "b47162603fc87ed9d35a7d913bf4839d64338491",
+      "ref": "211a23789219d7842c549b47e22a2a577098a338",
       "required_for": [
         "standalone",
         "cluster"
@@ -63,6 +63,7 @@
     "recommendation_api": 1,
     "kafka_mutation_envelope": 1,
     "release_manifest": 1,
-    "recommendation_readiness": 1
+    "recommendation_readiness": 1,
+    "recommendation_recall_diagnostics": 1
   }
 }

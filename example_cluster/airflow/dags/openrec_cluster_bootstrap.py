@@ -68,10 +68,27 @@ def _recommendation_request(request_id):
                 "deviceId": "airflow-cluster-smoke",
                 "type": "click",
                 "params": {"query": "item"},
-                "debug": False,
+                "debug": True,
             },
         },
     )
+
+
+def _validate_recall_channels(data):
+    # Use request-scoped, pre-merge outputs. Final top-N membership depends on
+    # ranking and quotas, and overlapping candidates may have another primary channel.
+    diagnostics = data.get("recallDiagnostics") or []
+    channels = {
+        node.get("channel") for node in diagnostics
+        if node.get("status") == "SUCCESS" and node.get("candidateCount", 0) > 0
+    }
+    missing = REQUIRED_RECALL_CHANNELS - channels
+    if missing:
+        raise RuntimeError(
+            "recommendation recall nodes failed or returned no candidates %s; "
+            "recall diagnostics: %s; index counts: %s"
+            % (sorted(missing), diagnostics, _recall_counts())
+        )
 
 
 def _recall_counts():
@@ -234,20 +251,7 @@ def openrec_cluster_bootstrap():
                 "recommendation returned no candidates: %s; recall counts: %s"
                 % (response, _recall_counts())
             )
-        channels = {
-            result.get("recallFrom")
-            for result in data["results"]
-            if result.get("recallFrom")
-        }
-        for result in data["results"]:
-            channels.update((result.get("recallScores") or {}).keys())
-        missing = REQUIRED_RECALL_CHANNELS - channels
-        if missing:
-            raise RuntimeError(
-                "recommendation misses enabled channels %s: %s; "
-                "recall counts: %s"
-                % (sorted(missing), response, _recall_counts())
-            )
+        _validate_recall_channels(data)
         unranked = [
             result.get("id")
             for result in data["results"]

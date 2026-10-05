@@ -9,7 +9,7 @@ recommend() {
     http://127.0.0.1:13579/api/recommend \
     --write-out $'\n%{http_code}' \
     -H 'Content-Type: application/json' \
-    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":false,\"params\":{\"ab\":\"default\",\"query\":\"item\"}}}")"; then
+    --data "{\"requestId\":\"${request_id}\",\"body\":{\"scene\":\"scene_0\",\"size\":12,\"userId\":\"${smoke_user}\",\"deviceId\":\"standalone-smoke\",\"type\":\"click\",\"debug\":true,\"params\":{\"ab\":\"default\",\"query\":\"item\"}}}")"; then
     status="${response##*$'\n'}"
     printf '%s\n' "${response%$'\n'*}"
     if [[ ! "${status}" =~ ^2[0-9][0-9]$ ]]; then
@@ -39,13 +39,15 @@ response = json.load(sys.stdin)
 if response.get("code") != 200 or response.get("status") is not True:
     raise SystemExit("recommendation did not succeed: %s" % response)
 results = (response.get("data") or {}).get("results") or []
-channels = {item.get("recallFrom") for item in results if item.get("recallFrom")}
-for item in results:
-    channels.update((item.get("recallScores") or {}).keys())
+if not results:
+    raise SystemExit("recommendation returned no candidates")
+diagnostics = (response.get("data") or {}).get("recallDiagnostics") or []
+channels = {node.get("channel") for node in diagnostics
+            if node.get("status") == "SUCCESS" and node.get("candidateCount", 0) > 0}
 required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse", "hot"}
 missing = required - channels
 if missing:
-    raise SystemExit("missing channels: %s" % ",".join(sorted(missing)))
+    raise SystemExit("missing channels: %s; recall diagnostics: %s" % (",".join(sorted(missing)), diagnostics))
 ' <<<"${recommend_response}"; then
     recommend_ok=true
   else
@@ -57,7 +59,7 @@ if missing:
 done
 docker exec redis redis-cli DEL "event:{${smoke_user}}:scene_0:expose" >/dev/null
 [[ "${recommend_ok}" == true ]] \
-  || die "default weighted-channel smoke missed an enabled recall channel: ${recommend_response}"
+  || die "recall-node smoke missed an enabled recall channel: ${recommend_response}"
 # A bypassed RankNode leaves rankScore unset. Do not depend on its INFO log here: container
 # logging level and asynchronous flushing can hide that line even though ranking was skipped.
 if grep -Eq '"rankScore":[[:space:]]*-?[0-9]' <<<"${recommend_response}"; then
@@ -67,4 +69,4 @@ if docker logs rec-server 2>&1 \
     | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
   die "standalone log contains an unexpected Rank or Kafka service call"
 fi
-note "Default weighted-channel smoke passed: item-CF, content, UserCF, embedding, and hot are present; new-item supply is time-dependent; Rank and Kafka are bypassed"
+note "Recall-node smoke passed: item-CF, content, UserCF, embedding, sparse, and hot returned candidates; new-item supply is time-dependent; Rank and Kafka are bypassed"

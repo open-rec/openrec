@@ -31,7 +31,7 @@ load balancer must use `/ready`, rather than interpreting a successful `/health`
 readiness. rec-console's dependency health checks confirm control-plane availability, not this traffic gate.
 
 Rollback requires matching component refs and startup scripts: older servers do not implement the
-readiness endpoints. Recommendation payloads and the Kafka envelope are unchanged.
+readiness endpoints. The Kafka envelope is unchanged.
 
 ## Local verification
 
@@ -47,3 +47,30 @@ readiness endpoints. Recommendation payloads and the Kafka envelope are unchange
   passed with the CI functional budgets, including Kafka/processor feature parity, ranked recommendations
   and ingestion. All 13 tasks in `openrec-start-20261005T022508Z` succeeded; the readiness warmup task
   completed before recommendation smoke. These are local integration results, not a remote CI run.
+
+## Recall availability versus final selection
+
+Both startup smoke checks send `debug: true` and require a successful, non-empty diagnostic
+for each fixture-backed channel in `data.recallDiagnostics`. This additive response field
+requires the companion rec-server ref pinned in `release/openrec.json`; missing diagnostics
+fail the check rather than silently falling back to final-result attribution.
+
+Diagnostics count candidates before filtering, de-duplication, ranking and truncation. One
+item recalled by item-CF and UserCF proves both channels supplied candidates, even if its
+primary `recallFrom` is item-CF or it is absent from the final twelve results. Final results
+must still be non-empty; cluster requires rank scores for every returned item, while
+standalone requires ranking to remain bypassed. Empty, failed, timed-out or disabled required
+recall nodes remain acceptance failures. These checks do not assert a final channel quota.
+
+Regression verification (2026-10-05): the isolated cluster reused the exact model bundle that
+previously failed UserCF coverage on seven attempts. With the new diagnostics, all 13 tasks in
+`openrec-start-20261005T045336Z` passed, including recommendation and ingestion smoke. A captured
+response still omitted UserCF from the final twelve results while reporting `SUCCESS` and five
+UserCF candidates; all twelve results had rank scores. CI resource and deadline settings were
+used, with a cached same-version PyTorch development base for the offline runner due to Docker
+Hub connectivity. This is a local regression run, not a remote CI result.
+
+The updated standalone source-build startup also passed all recall-node checks and restored
+Web Demo readiness. Component verification: 151 Java tests (149 passed, two existing skips),
+six SDK tests, and 28 distribution script tests passed. Distribution policy and syntax checks
+passed; ShellCheck was unavailable on this host.

@@ -12,7 +12,7 @@ CHANNELS = ["item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse
 
 
 class StandaloneRecommendationTest(unittest.TestCase):
-    def run_case(self, failures, channels=CHANNELS, rank=False):
+    def run_case(self, failures, channels=CHANNELS, rank=False, status="SUCCESS", candidate_count=1):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             curl = root / "curl"
@@ -33,12 +33,14 @@ print('200')
                 executable = root / name
                 executable.write_text("#!/bin/sh\nexit 0\n")
                 executable.chmod(0o755)
-            results = [{"id": channel, "recallFrom": channel} for channel in channels]
+            results = [{"id": "final-item", "recallFrom": "hot"}]
+            diagnostics = [{"channel": channel, "status": status, "candidateCount": candidate_count}
+                           for channel in channels]
             if rank:
                 results[0]["rankScore"] = 0.5
             env = dict(os.environ, PATH=f'{root}:{os.environ["PATH"]}', LOG_DIR=directory,
                        COUNT_FILE=str(root / "count"), FAILURES=json.dumps(failures),
-                       RESPONSE=json.dumps({"code": 200, "status": True, "data": {"results": results}}))
+                       RESPONSE=json.dumps({"code": 200, "status": True, "data": {"results": results, "recallDiagnostics": diagnostics}}))
             result = subprocess.run(
                 ["bash", "-eu", "-o", "pipefail", "-c",
                  'smoke_user=test; note() { :; }; die() { echo "$*" >&2; exit 1; }; source "$1"',
@@ -67,3 +69,16 @@ print('200')
         result, _, _ = self.run_case([], rank=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unexpectedly used rank scores", result.stderr)
+
+    def test_final_result_need_not_cover_all_successful_recall_channels(self):
+        result, count, _ = self.run_case([])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(count, 1)
+
+    def test_successful_but_empty_recall_is_rejected(self):
+        result, _, _ = self.run_case([], candidate_count=0)
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_timed_out_recall_is_rejected_even_with_positive_count(self):
+        result, _, _ = self.run_case([], status="TIMED_OUT")
+        self.assertNotEqual(result.returncode, 0)
