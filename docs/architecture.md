@@ -38,10 +38,12 @@ flowchart TD
 
 1. The loader imports users, items, and events to Redis.
 2. Recall tables are loaded into versioned Elasticsearch indexes behind stable active aliases.
-3. The Web Demo or SDK calls `rec-server`.
-4. The serving DAG gathers candidates, filters and combines them, bypasses remote ranking by
-   default, and returns results.
-5. The standalone console manages the serving graph and exposes diagnostics and monitoring.
+3. rec-server warms a representative graph with an independent budget and verifies consecutive
+   normal-budget successes before `/ready` admits recommendation requests.
+4. The Web Demo or SDK calls `rec-server`; the DAG recalls, filters and combines candidates,
+   bypasses remote ranking by default, and returns results.
+5. Startup validates pre-selection recall diagnostics and the final result before starting Web Demo.
+   The standalone console manages the serving graph and exposes diagnostics and monitoring.
 
 Standalone is the minimum release acceptance because it verifies the shared online contracts with
 far fewer moving parts.
@@ -56,6 +58,7 @@ sequenceDiagram
     participant P as data-processor
     participant D as Redis/HBase/Hive
     participant A as Airflow/rec-algorithm
+    participant M as rec-console
     participant E as Elasticsearch/models
     participant R as rank-engine
 
@@ -64,8 +67,9 @@ sequenceDiagram
     K->>P: ordered partition stream
     P->>D: online projection and historical retention
     A->>D: read cumulative training data
-    A->>E: prepare and validate immutable artifact
-    A->>E: atomically activate artifact
+    A->>E: publish staged recall/model artifact
+    M->>E: validate and activate recall aliases
+    M->>R: validate and activate model release
     C->>O: recommend
     O->>D: online entities and filters
     O->>E: active recall aliases
@@ -123,3 +127,17 @@ and retain a compatible model when rolling software back.
 `release/openrec.json` is the machine-readable root of the dependency graph. Development manifests
 may point to branches. A stable release must pin component tags or full commit SHAs and must never
 depend on floating container tags. See [versioning](versioning.md).
+
+## Runtime baseline and readiness
+
+All OpenRec Java source artifacts require Java 21, including graph/proto/contrib, SDK and init.
+rec-server and Web Demo use Spring Boot 4.1.1; data-processor and the algorithm runner align with
+Spark 4.0.4/Scala 2.13 and Flink 2.2.1. rec-console and rank-engine remain Python services. Platform
+storage daemon JVMs are independent of this application baseline.
+
+rec-server `/health` is liveness, `/ready` is recommendation admission, and publishing a graph
+invalidates readiness until its configured samples verify the new plan. Debug
+`recallDiagnostics` measures each recall node's supply before merging and final selection;
+`recallScores` describes channel contributions only for returned items. Startup smoke validates
+the former without imposing a final channel distribution. The [readiness guide](recommendation-readiness.md)
+and [CI guide](ci.md) define the current acceptance sequence.

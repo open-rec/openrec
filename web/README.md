@@ -17,8 +17,8 @@ which behaviours move them?*
 ## prerequisites
 
 1. Redis and Elasticsearch running, seeded by [init](../init) — the demo uses `user_0` and the `scene_0..2` sample data
-2. `rec-server` running on port 13579
-3. `rec-proto` and `rec-client` installed into the local Maven repo
+2. `rec-server` on port 13579 with representative warmup completed and `/ready` returning HTTP 200
+3. JDK 21 and Maven 3.9+, with the matching Java 21 `rec-proto` and `rec-client` installed locally
 
 Full setup: [example_standalone](../example_standalone).
 
@@ -76,24 +76,23 @@ item_7888   [content_i2i +1]  recall=content_i2i:0.0959,hot:0.5833; rank=-
 item_6689   [hot]        recall=hot:1.0000; rank=-
 ```
 
-**An item recalled by several channels lists all of them.** De-duplication decides which score
-*ranks* the item (the first channel wins), but the other channels' scores are kept rather than
-discarded — `item_7888` above is weak in content I2I (0.0959) yet strong in hot (0.5833), and that
-disagreement is exactly what you need when adjusting strategy by hand. The badge shows `+n` for the
-extra channels; the structured form is in `recallScores` on the API response.
+**An item recalled by several channels lists all of them.** De-duplication retains the first
+channel as primary `recallFrom`, while `recallScores` preserves every contribution. Cluster
+ranking computes the final score through the configured recall/rank fusion; the primary channel
+alone does not determine final order. The badge shows `+n` for additional channels.
 
-Measured on the sample data with `size=40`: 5 of 40 items were hit by two channels, and `hot`
-produced 10 items in total while only 5 of them ranked by their hot score. Before this, those 5 hot
-scores were simply lost.
+Only selected candidates appear in the Web Demo. An absent channel badge does not prove that
+recall failed. The startup smoke uses debug `recallDiagnostics` from before filtering, ranking
+and truncation, so one overlapping item can demonstrate supply from several recall channels.
 
 `rank=-` means the rank stage did not run — `rankScore` is null rather than 0, so "the rank engine is
-down" stays distinguishable from "the model scored this 0". Start
-[rank-engine](https://github.com/open-rec/rank-engine) (step 8) to get real values, which render as
-`rank=0.7700`.
+down" stays distinguishable from "the model scored this 0". Standalone deliberately bypasses
+ranking; starting rank-engine alone does not enable it. Use the complete
+[cluster startup](../example_cluster/README.md) to validate real ranking, displayed as `rank=0.7700`.
 
 Combine de-duplicates channels in configured `recallTypes` order, so the first channel becomes
 an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
-standalone operation rule allocates `item_cf_i2i`/`content_i2i`/`user_cf_u2i`/`item_seq_emb`/hot/new candidates using the
+operation rule allocates item-CF, content, UserCF, sequence/query embedding, sparse, hot and new candidates using the
 ratios in `item_graph.json` and orders the selected items by score. If a channel is short, its quota is
 filled by the highest-scoring
 unused candidates, so the observed mix can differ from the target rather than returning fewer items.
@@ -103,7 +102,7 @@ Fields on each item in the API response:
 | field | meaning |
 |---|---|
 | `score` | final ordering score after configured recall/rank fusion |
-| `recallFrom` | the channel whose score ranks it |
+| `recallFrom` | first contributing channel; used as the primary operation-rule bucket |
 | `recallScore` | score entering the rank stage; null if it never got there |
 | `rankScore` | the rank engine's contribution; null if ranking did not run |
 | `recallScores` | every channel that recalled it → that channel's score |
@@ -126,16 +125,16 @@ read.
 
 ## which behaviours change recommendations
 
-Three behaviours feed the DAG:
+Three behaviours directly affect recall or filtering in the default item DAG:
 
 | behaviour | trigger | effect on the next recommendation |
 |---|---|---|
-| `click` | clicking a card | **yes** — `UserTriggerNode` reads recent clicks and uses them as recall triggers |
+| `click` | clicking a card | **yes** — the item `TriggerNode` reads recent clicks and uses them as recall triggers |
 | `expose` | standalone: returned by server; cluster: actually visible in browser | **yes** — `FilterNode` excludes anything exposed within its window (24h) |
 | `dislike` | 不喜欢商品 / 屏蔽类目 / 屏蔽标签 buttons | **yes** — `BlackNode` loads the structured rules and `CombineNode` applies them |
-| `stay` | card leaves the viewport, value = dwell seconds | no — stored only |
-| `buy` | 购买 button | no — stored only |
-| `collect` | 收藏 button | no — stored only |
+| `stay` | card leaves the viewport, value = dwell seconds | no direct recall/filter effect; cluster feature/history input |
+| `buy` | 购买 button | no direct recall/filter effect; cluster feature/history input |
+| `collect` | 收藏 button | no direct recall/filter effect; cluster feature/history input |
 
 **Exposure hides the item.** In standalone, `collector.fake-expose.enabled=true`: `CollectorNode`
 records DAG results as synthetic exposure, while the Web backend provides the same fallback for 热门
@@ -144,15 +143,15 @@ an `IntersectionObserver` batches cards that cross the 50% visibility threshold 
 This keeps the standalone convenience while making cluster analytics reflect actual displays.
 
 `dislike.value` is structured JSON containing one selected scope: `id`, `category`, or a `tags`
-array. It is materialized as prefixed members in Redis. `stay` carries dwell time in `value`, but
-that value is not persisted: the ordinary event index is
-`event:{userId}:{scene}:{type}` → sorted set of `(itemId, timestamp)`, so there is nowhere to put it.
-The event reaches rec-server and the item lands in the sorted set; only the number is dropped.
+array. It is materialized as prefixed members in Redis. The ordinary event index is
+`event:{userId}:{scene}:{type}` → sorted set of `(itemId, timestamp)`; this index does not retain
+`stay.value` (dwell seconds). In standalone, the direct Redis push path therefore drops that value.
+In cluster, the Kafka mutation retains the event payload for data-processor's feature and history
+projections, including numeric event values.
 
-`UserTriggerNode` consumes click, `FilterNode` consumes expose, and `BlackNode` consumes dislike.
-The other three are written correctly to `event:{userId}:{scene}:{type}` and read by nobody. They are still
-worth reporting — an offline model would train on them — but the page marks them inert rather than
-implying otherwise.
+The item `TriggerNode` consumes click, `FilterNode` consumes expose, and `BlackNode` consumes dislike.
+`buy`, `collect`, and `stay` do not directly change those recall/filter rules. In cluster their effect
+on ranking depends on the active feature/model configuration; they are not universally inert.
 
 ## seeing the feedback loop
 
@@ -162,7 +161,7 @@ implying otherwise.
 4. anything carrying a **NEW** badge was not in the previous result set
 
 Underneath: the clicks became members of `event:{user_0}:scene_0:click`; the next request's
-`userTrigger` reads them as triggers; `item_cf_i2i` and `item_seq_emb` recall neighbours of those items
+`user_trigger` reads them as triggers; `item_cf_i2i` and `item_seq_emb` recall neighbours of those items
 instead of the previous ones.
 
 Cross-check from outside the browser:
@@ -171,7 +170,7 @@ Cross-check from outside the browser:
 redis-cli ZRANGE 'event:{user_0}:scene_0:click' 0 -1 WITHSCORES
 ```
 
-and in the rec-server log, `userTrigger with trigger size:N` grows as you click.
+and in the rec-server log, `user_trigger with trigger size:N` grows as you click.
 
 Measured on the sample dataset, starting from a cold `user_0` (no clicks):
 
@@ -194,9 +193,10 @@ redis-cli ZCARD 'item-cf-i2i:{item_2}:scene_0'
 
 ## repeatability
 
-Every recommendation makes `CollectorNode` write a synthetic `expose` record for everything it
-returned, and `FilterNode` then excludes anything exposed in the last 24h. Refresh enough times and
-the candidate pool drains — 猜你喜欢 goes empty and looks broken.
+In standalone, business recommendations make `CollectorNode` write synthetic exposure records;
+in cluster, the browser reports visible cards. Readiness probes do not write synthetic exposures.
+`FilterNode` excludes recent exposures in both modes, so repeated browsing can exhaust a small
+fixture's candidate pool and leave 猜你喜欢 empty.
 
 **重置曝光** deletes `event:{userId}:{scene}:expose` and the pool comes back. It writes to Redis
 directly because `PushRedisService.pushEvent` only implements INSERT/UPDATE — the sdk has no way to

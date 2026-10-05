@@ -33,7 +33,7 @@ readiness. rec-console's dependency health checks confirm control-plane availabi
 Rollback requires matching component refs and startup scripts: older servers do not implement the
 readiness endpoints. The Kafka envelope is unchanged.
 
-## Local verification
+## Initial readiness rollout verification (historical)
 
 - rec-server: full Maven tests, 146 passed and two existing tests skipped; covers admission over real
   HTTP, warmup authentication, isolated deadlines, normal-budget streaks, graph invalidation and
@@ -74,3 +74,10 @@ The updated standalone source-build startup also passed all recall-node checks a
 Web Demo readiness. Component verification: 151 Java tests (149 passed, two existing skips),
 six SDK tests, and 28 distribution script tests passed. Distribution policy and syntax checks
 passed; ShellCheck was unavailable on this host.
+
+Final-commit cluster startup regression also passed in
+`openrec-start-20261005T051839Z` with rec-server `211a237` and distribution `af8a8eb`.
+All 13 Airflow tasks succeeded, `/ready` reported three consecutive successful verification
+rounds, Kafka/Spark/Redis feature parity passed, and Web Demo returned HTTP 200. This repeated
+local check used the CI resource/deadline configuration and the same cached offline-runner base
+noted above; it did not rerun remote GitHub CI.

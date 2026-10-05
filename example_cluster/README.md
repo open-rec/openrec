@@ -133,7 +133,10 @@ it preserves larger deadlines, graph edges, recall configuration and failure pol
 The checks require nonempty recommendations and rank scores. Required recall channels are verified
 using successful, nonempty pre-selection `recallDiagnostics`, not membership in the final top-N.
 Normal startup retains the online graph deadlines and the 1000 ms request budget. To reproduce
-the CI budgets locally, pass both variables when invoking `start.sh --local`.
+the CI budgets locally, pass both variables when invoking `start.sh --local`. `--local` changes
+image/package-source defaults; both modes build workspace source and execute the same DAG. It
+does not isolate data, regenerate a valid cached model, or apply CI resource limits. See
+[CI/local differences](../docs/ci.md#reproducing-cluster-ci-locally) for the full comparison.
 
 The bootstrap DAG requests authenticated server-side recommendation warmup, then waits for
 `/ready` before its recommendation smoke task. Warmup has independent request/node budgets and
@@ -156,7 +159,7 @@ The startup-triggered `openrec_cluster_bootstrap` DAG verifies:
 
 - Kafka, HDFS, Hive, Spark workers, Redis, and Elasticsearch are reachable and ready.
 - `rank-engine`, cluster-mode `rec-server`, the recall runner, and `rec-console` are healthy.
-- A real recommendation returns candidates.
+- Warmup reaches `/ready`; a real recommendation has healthy recall-node diagnostics and ranked candidates.
 - A uniquely named user pushed to `rec-server` reaches Redis through Kafka and the Spark
   `data-processor`; unique data prevents a previous run from producing a false-positive result.
 

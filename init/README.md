@@ -11,6 +11,7 @@ Entry point: `com.openrec.example.InitStandalone`.
 
 ## build
 
+Use JDK 21 and Maven 3.9+. The loader, `rec-proto` and `rec-client` all target `--release 21`.
 `rec-proto` (from `rec-server`) and `rec-client` (from `sdk`) must be in your local Maven repo first:
 
 ```shell
@@ -53,11 +54,14 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
   com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 ```
 
-Loading the bundled sample dataset takes roughly 20 seconds and writes about 58,000 Redis keys plus
-three Elasticsearch indexes.
+Import time depends on storage and host load. The loader writes entities, events, feature snapshots,
+Redis recall tables, five Elasticsearch table-recall families, per-scene vector indexes, and the
+sparse index. Verify the required aliases and sample keys after loading instead of relying on an
+old fixed index/key count or duration estimate.
 
-Redis and Elasticsearch are loaded independently: if one fails the error is logged and the other still
-runs, so check the output rather than assuming an exit code of 0 means everything landed.
+Redis is loaded before Elasticsearch. Thrown import errors abort startup with a nonzero exit code;
+client-creation paths that return no client only log an error and skip that store. Check the output
+and verify both stores rather than relying on the exit code alone.
 
 ## expected data layout
 

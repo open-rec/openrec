@@ -7,15 +7,17 @@ long-running services, and triggers `openrec_cluster_bootstrap`.
 The DAGs use only Kafka, Hive, Spark, Redis, Elasticsearch, and HTTP network endpoints. They do not
 mount the Docker socket or manage containers.
 
-`openrec_cluster_bootstrap` is manually scheduled and safe to rerun. It validates the platform and
-online services, sends a real recommendation, then verifies the Kafka -> data-processor -> Redis
-ingestion path.
+`openrec_cluster_bootstrap` is manually scheduled and can be rerun after `start.sh` has installed
+Hive tables and loaded sample entities/recall data. The DAG validates dependencies, requests
+server-side warmup, waits for `/ready`, sends a ranked recommendation, and then verifies a unique
+user mutation through Kafka -> data-processor -> Redis. Bootstrap itself does not install Hive
+tables or load the full fixture.
 
 ## Workflow inventory
 
 | DAG | Schedule | Responsibility |
 |---|---|---|
-| `openrec_cluster_bootstrap` | Manual | Check platform and application health, initialize Hive, push fixture entities, and verify online ingestion |
+| `openrec_cluster_bootstrap` | Manual | Check platform/services, warm and verify recommendations, then verify online ingestion |
 | `openrec_daily_recall` | Published configuration | Run the ordered recall pipeline, write staging indexes, and request validated activation through rec-console |
 | `openrec_daily_user_recall` | Published configuration | Build and atomically activate UserCF, content, and embedding U2U recall tables |
 | `openrec_recall_rollback` | Manual | Ask rec-console to restore a retained recall-index version |
@@ -45,3 +47,17 @@ authenticated Airflow UI on host port 8091 to inspect DagRuns, task attempts, an
 designed to be retried, while recall and model publication use immutable versions plus explicit
 activation so an incomplete run does not replace the active artifact. Complete acceptance commands
 and failure-log locations are documented in the parent [cluster guide](../README.md).
+
+## Recommendation acceptance
+
+`recommendation_warmup` authenticates with `SERVING_GRAPH_TOKEN`, which must match rec-server.
+It requests an independent warmup budget followed by consecutive normal-budget verification.
+`recommendation_smoke` uses `debug: true` and requires successful, nonempty `recallDiagnostics`
+for the fixture-backed item-CF, content, UserCF, sequence embedding, sparse and hot channels.
+New-item supply is time-dependent and query embedding requires a supplied vector, so these are
+not mandatory for the default sample. A candidate shared by multiple channels counts toward each;
+the final twelve results need not display every channel. They must remain nonempty and ranked.
+
+`ingestion_smoke` runs only after recommendation smoke succeeds. Its `upstream_failed` state
+means it did not execute, not that Kafka ingestion independently failed. Inspect the failed
+upstream task, diagnostics and the matching request ID in rec-server's `graph_trace` logs.

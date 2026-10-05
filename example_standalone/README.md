@@ -31,7 +31,7 @@ The diagram is deployment-level. The recall, filtering, combination, and operati
 
 ## Prerequisites and layout
 
-Install Docker with the Compose plugin, JDK 21, and Maven 3.6+. Keep the component repositories in
+Install Docker with the Compose plugin, JDK 21, and Maven 3.9+. Keep the component repositories in
 the workspace layout used by this project:
 
 ```text

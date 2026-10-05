@@ -7,17 +7,20 @@ their JVM before using these artifacts.
 
 ## Build and CI
 
-Install JDK 21 and Maven, then set either `JAVA_HOME` or `OPENREC_JAVA21_HOME` to the JDK directory:
+Install JDK 21 and Maven 3.9+, then set either `JAVA_HOME` or `OPENREC_JAVA21_HOME` to the JDK directory:
 
 ```bash
 export OPENREC_JAVA21_HOME=/path/to/jdk-21
 ./scripts/build-components.sh
 ```
 
-The shared Java helper sets `JAVA_HOME`, `PATH` and the runtime `JAVA` command to the same JDK.
-It also recognizes Actions' `JAVA_HOME_21_X64` and the workspace `.tools/jdk21` installation.
-SDK, init, web and server builds no longer switch JDKs. CI provisions only Java 21; there is no
-Java 8 shared-library test fork. An incompatible JDK fails the prerequisite check.
+The shared Java helper selects the first JDK 21 with `bin/javac` from `OPENREC_JAVA21_HOME`,
+Actions' `JAVA_HOME_21_X64`, `JAVA_HOME`, the resolved `javac` on `PATH`, then workspace
+`.tools/jdk21`. It sets `JAVA_HOME`, `PATH` and the runtime `JAVA` command to that installation.
+If no candidate is JDK 21, startup fails with `JDK 21 required; set OPENREC_JAVA21_HOME`.
+`OPENREC_JAVA21_HOME` is interpreted by the distribution scripts; for direct `mvn`/`java` commands,
+set `JAVA_HOME` and put its `bin` directory on `PATH` yourself. SDK, init, web and server builds no
+longer switch JDKs. CI provisions only Java 21; there is no Java 8 shared-library test fork.
 
 The SDK's independent protocol-source CI build also targets Java 21 and uses a compatible
 Lombok processor. The distribution manifest pins the companion rec-server and SDK commits;
@@ -30,8 +33,10 @@ fails early. Without a workspace cache or override, Maven retains its own defaul
 
 ## Compatibility and verification
 
-HTTP payloads, Kafka envelopes and serving schemas remain unchanged. This change raises the
-minimum Java runtime for shared artifacts; it does not change their protocol contracts.
+The Java bytecode migration itself preserved HTTP payloads, Kafka envelopes and serving schemas.
+It raises the minimum Java runtime for shared artifacts. Subsequent startup fixes add readiness
+endpoints and debug `recallDiagnostics`; see [recommendation readiness](recommendation-readiness.md)
+for the current response and acceptance contract.
 Validate the producer and consumer chain with the rec-server tests, SDK tests, init/web tests,
 the distribution build, and the script tests. Verify emitted OpenRec classes use major 65.
 
@@ -47,8 +52,10 @@ Validated locally on 2026-10-04 with JDK 21:
 - `python3 -m unittest discover -s scripts/tests -v` passed 11 tests; `./scripts/validate.sh`
   passed manifest/documentation and shell syntax checks (ShellCheck was unavailable).
 
-These are local results; remote GitHub Actions and a fresh full-cluster startup were not rerun
-for this build-only change.
+These are historical results for the 2026-10-04 build-only change. Later standalone and cluster
+startup regressions, including the previously failing CI UserCF scenario, are recorded in the
+[readiness verification log](recommendation-readiness.md). Those local runs are not evidence of
+a successful remote GitHub Actions run.
 
 Older migration documents retain historical test results and the previous dual-JDK rollout.
 Their Java 8 build instructions no longer apply to the current manifest. Rollback requires the

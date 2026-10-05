@@ -44,8 +44,10 @@ and the required companion versions.
   compatibility.
 - Standalone E2E starts real Redis, Elasticsearch, rec-server, rec-console, and the Web Demo, imports
   sample data, and executes a real recommendation request.
-- Cluster E2E validates Kafka ingestion, Spark projections, HDFS/Hive persistence, versioned recall
-  publication, online recommendation, analytics, deletion semantics, model activation, and rollback.
+- Cluster E2E runs the full startup path, infrastructure smoke, Kafka/Spark/Redis feature parity,
+  recommendation warmup, recall-node diagnostics, ranked recommendations and Kafka ingestion.
+  The separate `example_cluster/verify_*.sh` flows cover deeper persistence, recall publication,
+  analytics, deletion, model lifecycle and rollback acceptance.
 - Release tags package the manifest, deployment definitions, documentation, sample data, and
   checksums as one immutable distribution bundle.
 
@@ -70,7 +72,7 @@ independent training/publication, coordinated component upgrades and local-image
 ### 1. Clone the distribution and components
 
 ```shell
-git clone https://github.com/open-rec/example.git
+git clone https://github.com/open-rec/openrec.git example
 cd example
 ./scripts/checkout-components.sh
 ```
