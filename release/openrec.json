@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "distribution": "openrec",
-  "version": "0.1.0-dev",
-  "status": "development",
+  "version": "0.1.0",
+  "status": "released",
   "components": {
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
-      "ref": "f592877a234d795254a948144dabf6b1dae1bf06",
+      "ref": "a94a83e4d4e0d8524c0b5739855ee71fd162bbee",
       "required_for": [
         "standalone",
         "cluster"
@@ -14,21 +14,21 @@
     },
     "data-processor": {
       "repository": "https://github.com/open-rec/data-processor.git",
-      "ref": "73f76b79075446ff0669e99e59a78522bd7e788e",
+      "ref": "204d8e3cf6725548171d6e351f4a1bce4c2a8546",
       "required_for": [
         "cluster"
       ]
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "0fdc63e6da52cf6d5ec4cf3918b7e7fee2c1beb6",
+      "ref": "53cb46f130cff1073846c7a9a005aaa901f8916d",
       "required_for": [
         "cluster"
       ]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "99fca0bf2bc1c3597166894fddb1999180636ccd",
+      "ref": "e2bab2c3a4d0692756da9eb4abd4414e126bab87",
       "required_for": [
         "standalone",
         "cluster"
@@ -36,7 +36,7 @@
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "80b42de03254ed608751064aa33109bc18a5b42f",
+      "ref": "eeee4b08f233b0262f863f3b664552e8e81ba7aa",
       "required_for": [
         "standalone",
         "cluster"
@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "211a23789219d7842c549b47e22a2a577098a338",
+      "ref": "3b2c38d3e8a649a01ac490e7bb4607476e3b809e",
       "required_for": [
         "standalone",
         "cluster"
@@ -52,7 +52,7 @@
     },
     "sdk": {
       "repository": "https://github.com/open-rec/sdk.git",
-      "ref": "3fa1664033a7cbd3447f3a3ae7d59c6ffd38222c",
+      "ref": "07ec0493da7d323be66956e2d283d79a0bd7b1c1",
       "required_for": [
         "standalone",
         "cluster"

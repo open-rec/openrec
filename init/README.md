@@ -20,7 +20,7 @@ cd sdk/java-client && mvn clean install -DskipTests && cd ../..
 cd example/init && mvn clean package -DskipTests
 ```
 
-Produces `target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar`.
+Produces `target/rec-example-init-0.1.0-jar-with-dependencies.jar`.
 
 ## run
 
@@ -34,7 +34,7 @@ cd ..
 ```
 
 ```shell
-java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
+java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
   com.openrec.example.InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir] [model_dir]
 ```
 
@@ -50,7 +50,7 @@ java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
 
 ```shell
 cd example
-java -cp init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar \
+java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
   com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 ```
 

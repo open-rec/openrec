@@ -28,7 +28,7 @@ rsync -a --no-owner --no-group --delete --exclude target/ \
 
 run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" clean install -DskipTests
 mkdir -p "${BUILD_ROOT}/rec-server/server/plugins"
-cp "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-1.0-SNAPSHOT.jar" \
+cp "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-0.1.0.jar" \
   "${BUILD_ROOT}/rec-server/server/plugins/"
 run_maven -f "${BUILD_ROOT}/rec-server/pom.xml" \
   -pl graph,proto,contrib test

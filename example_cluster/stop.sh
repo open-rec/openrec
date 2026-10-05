@@ -42,9 +42,9 @@ stop_pid_file() {
 
 # Stop only processes owned by this example and verify the jar marker before signalling, so a
 # reused PID or unrelated service is never killed.
-stop_pid_file "cluster Web Demo" "${CLUSTER_STATE_DIR}/web.pid" "rec-example-web-1.0-SNAPSHOT.jar"
+stop_pid_file "cluster Web Demo" "${CLUSTER_STATE_DIR}/web.pid" "rec-example-web-0.1.0.jar"
 # Compatibility cleanup for clusters started before rec-server moved to Compose.
-stop_pid_file "legacy cluster rec-server" "${CLUSTER_STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
+stop_pid_file "legacy cluster rec-server" "${CLUSTER_STATE_DIR}/rec-server.pid" "rec-server-0.1.0.jar"
 
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -Fxq spark-master \
     && docker exec spark-master test -f "${SPARK_PID_FILE}" 2>/dev/null; then

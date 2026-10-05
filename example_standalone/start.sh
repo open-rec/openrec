@@ -139,7 +139,7 @@ note "Building Java SDK, data loader, and Web Demo"
 note "Loading standalone sample data"
 (
   cd "${WORKSPACE}/example"
-  "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar" \
+  "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-0.1.0-jar-with-dependencies.jar" \
     com.openrec.example.InitStandalone \
     127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password \
     "${WORKSPACE}/example/data/test" "${WORKSPACE}/model"
@@ -197,7 +197,7 @@ web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"
 
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-0.1.0.jar" \
   "--server.port=${web_port}"
 wait_for_url "Web Demo" "http://127.0.0.1:${web_port}/"
 echo "${web_port}" >"${STATE_DIR}/web.port"
