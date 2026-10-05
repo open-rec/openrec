@@ -250,7 +250,7 @@ if docker exec spark-master test -f "${SPARK_PID_FILE}"; then
   docker exec spark-master kill -0 "${old_spark_pid}" 2>/dev/null \
     && die "Spark data-processor is already running (container pid ${old_spark_pid})"
 fi
-docker cp "${BUILD_DIR}/data-processor/spark/target/rec-spark-1.0-SNAPSHOT.jar" \
+docker cp "${BUILD_DIR}/data-processor/spark/target/rec-spark-0.1.0.jar" \
   spark-master:/tmp/openrec-data-processor.jar
 docker exec -d spark-master bash -lc \
   "echo \$\$ >${SPARK_PID_FILE}; exec /opt/spark/bin/spark-submit --class com.openrec.dp.spark.SparkFeatureJob --master spark://spark-master:7077 --total-executor-cores ${OPENREC_SPARK_TOTAL_EXECUTOR_CORES:-4} /tmp/openrec-data-processor.jar >${SPARK_LOG_FILE} 2>&1"
@@ -267,7 +267,7 @@ docker exec spark-master kill -0 "${spark_pid:-0}" 2>/dev/null \
 note "Loading sample serving data"
 (
   cd "${WORKSPACE}/example"
-  "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-1.0-SNAPSHOT-jar-with-dependencies.jar" \
+  "${JAVA}" -cp "${BUILD_DIR}/example/init/target/rec-example-init-0.1.0-jar-with-dependencies.jar" \
     com.openrec.example.InitStandalone \
     127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password \
     "${WORKSPACE}/example/data/test" "${WORKSPACE}/model"
@@ -299,7 +299,7 @@ run_airflow_dag "openrec_cluster_bootstrap" "openrec-start-$(date -u +%Y%m%dT%H%
 
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-1.0-SNAPSHOT.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/example/web/target/rec-example-web-0.1.0.jar" \
   --server.port=12345 --demo.exposure-mode=viewport
 wait_for_url "Web Demo" http://127.0.0.1:12345/
 

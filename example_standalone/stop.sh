@@ -20,9 +20,9 @@ stop_app() {
   rm -f "${pid_file}"
 }
 
-stop_app "Web Demo" "${STATE_DIR}/web.pid" "rec-example-web-1.0-SNAPSHOT.jar"
+stop_app "Web Demo" "${STATE_DIR}/web.pid" "rec-example-web-0.1.0.jar"
 # Compatibility cleanup for examples started before rec-server moved to Compose.
-stop_app "legacy rec-server" "${STATE_DIR}/rec-server.pid" "rec-server-1.0-SNAPSHOT.jar"
+stop_app "legacy rec-server" "${STATE_DIR}/rec-server.pid" "rec-server-0.1.0.jar"
 
 if [[ -n "$(docker compose -f "${SCRIPT_DIR}/docker-compose.yml" ps -aq 2>/dev/null)" ]]; then
   docker compose -f "${SCRIPT_DIR}/docker-compose.yml" down

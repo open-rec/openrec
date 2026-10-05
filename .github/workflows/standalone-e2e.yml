@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: '17 18 * * *'
   push:
-    branches: [master]
+    branches: [master, 'release/**']
     paths:
       - 'example_standalone/**'
       - 'init/**'

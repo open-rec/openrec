@@ -31,7 +31,7 @@ whole recommendation chain and starts this demo last on port 12345.
 cd example/web
 # JDK 21 / Spring Boot 4.1.1
 mvn clean verify
-java -jar target/rec-example-web-1.0-SNAPSHOT.jar
+java -jar target/rec-example-web-0.1.0.jar
 ```
 
 Open http://localhost:12345
@@ -39,7 +39,7 @@ Open http://localhost:12345
 Anything in `src/main/resources/application.properties` can be overridden on the command line:
 
 ```shell
-java -jar target/rec-example-web-1.0-SNAPSHOT.jar \
+java -jar target/rec-example-web-0.1.0.jar \
   --rec.server.endpoint=http://127.0.0.1:13579 \
   --spring.data.redis.host=127.0.0.1 \
   --demo.user-id=user_0 \

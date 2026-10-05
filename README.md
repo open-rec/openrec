@@ -1,5 +1,7 @@
 # OpenRec Distribution
 
+[Release v0.1.0](RELEASE_NOTES.md) · [Changelog](CHANGELOG.md)
+
 [![Quality](https://github.com/open-rec/openrec/actions/workflows/quality.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/quality.yml)
 [![Standalone E2E](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml)
 [![Cluster E2E](https://github.com/open-rec/openrec/actions/workflows/cluster-e2e.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/cluster-e2e.yml)
@@ -13,8 +15,8 @@ provides a reproducible sample dataset and Web Demo, and owns cross-repository e
 [Architecture](docs/architecture.md) · [Versioning](docs/versioning.md) ·
 [Releasing](docs/releasing.md) · [Organization overview](https://github.com/open-rec)
 
-> The current manifest is a development distribution. Use immutable component refs and a tagged
-> release for reproducible deployments; the supplied cluster Compose is an integration/reference
+> OpenRec v0.1.0 pins immutable component commits. Use this tagged release for reproducible
+> source deployments; the supplied cluster Compose is an integration/reference
 > topology and requires security and HA work before production use.
 
 ## Java migration prerequisites
@@ -72,7 +74,7 @@ independent training/publication, coordinated component upgrades and local-image
 ### 1. Clone the distribution and components
 
 ```shell
-git clone https://github.com/open-rec/openrec.git example
+git clone --branch v0.1.0 https://github.com/open-rec/openrec.git example
 cd example
 ./scripts/checkout-components.sh
 ```
@@ -196,7 +198,7 @@ failure diagnostics are documented in [CI](docs/ci.md).
 
 ## Versioning and releases
 
-The current development version is stored in [`VERSION`](VERSION). Component repositories may
+The distribution version is stored in [`VERSION`](VERSION). Component repositories may
 release independently, but an OpenRec distribution release is valid only when every ref in
 `release/openrec.json` is immutable and all required E2E checks pass.
 
