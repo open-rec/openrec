@@ -1,6 +1,5 @@
 """Test the actual DAG validator without requiring an Airflow installation."""
 import ast
-import csv
 from pathlib import Path
 import unittest
 
@@ -8,9 +7,9 @@ import unittest
 SOURCE = Path(__file__).resolve().parents[2] / "example_cluster/airflow/dags/openrec_cluster_bootstrap.py"
 tree = ast.parse(SOURCE.read_text())
 selected = [node for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name in {"_validate_recall_channels", "_recommendation_request"}
+            if isinstance(node, ast.FunctionDef) and node.name == "_validate_recall_channels"
             or isinstance(node, ast.Assign) and any(
-                isinstance(target, ast.Name) and target.id in {"REQUIRED_RECALL_CHANNELS", "SMOKE_TRIGGER_ITEMS", "REC_SERVER"}
+                isinstance(target, ast.Name) and target.id == "REQUIRED_RECALL_CHANNELS"
                 for target in node.targets)]
 namespace = {"_recall_counts": lambda: {"total": 100}}
 exec(compile(ast.Module(body=selected, type_ignores=[]), str(SOURCE), "exec"), namespace)
@@ -21,24 +20,6 @@ class ClusterRecallValidationTest(unittest.TestCase):
         return {"results": [{"id": "selected", "recallFrom": "hot"}],
                 "recallDiagnostics": [{"channel": channel, "status": "SUCCESS", "candidateCount": 5}
                                       for channel in namespace["REQUIRED_RECALL_CHANNELS"]]}
-
-    def test_smoke_uses_explicit_triggers_independent_of_persisted_clicks(self):
-        captured = {}
-        namespace["_request"] = lambda url, **kwargs: captured.update(kwargs)
-        namespace["_recommendation_request"]("test")
-        triggers = captured["body"]["body"]["itemIds"]
-        self.assertTrue(triggers)
-
-    def test_smoke_triggers_exist_in_bundled_recall_data(self):
-        triggers = namespace["SMOKE_TRIGGER_ITEMS"]
-        root = SOURCE.parents[4] / "model" / "recall"
-        if not root.is_dir():
-            self.skipTest("requires the model repository with bundled recall fixtures")
-        for table, key in [("item_cf_i2i", "left_item"),
-                           ("content_i2i", "left_item"), ("item_seq_emb", "item")]:
-            with (root / (table + ".csv")).open() as stream:
-                ids = {row[key] for row in csv.DictReader(stream) if row["scene"] == "scene_0"}
-            self.assertTrue(set(triggers) <= ids, table)
 
     def test_healthy_recall_passes_even_if_top_n_does_not_cover_channels(self):
         namespace["_validate_recall_channels"](self.payload())

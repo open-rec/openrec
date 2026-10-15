@@ -18,9 +18,6 @@ from airflow.sdk import dag, task, task_group
 
 
 REC_SERVER = "rec-server"
-# This sample has item-CF, content and vector entries in the bundled scene_0 data.
-# Persisted user_0 clicks may instead contain previous daily-acceptance fixtures.
-SMOKE_TRIGGER_ITEMS = ["item_3675"]
 REQUIRED_RECALL_CHANNELS = {
     "item_cf_i2i",
     "content_i2i",
@@ -68,7 +65,6 @@ def _recommendation_request(request_id):
                 "scene": "scene_0",
                 "size": 12,
                 "userId": "user_0",
-                "itemIds": SMOKE_TRIGGER_ITEMS,
                 "deviceId": "airflow-cluster-smoke",
                 "type": "click",
                 "params": {"query": "item"},
@@ -211,8 +207,7 @@ def openrec_cluster_bootstrap():
             method="POST",
             headers={"Content-Type": "application/json", "X-OpenRec-Token":
                      os.environ.get("SERVING_GRAPH_TOKEN", "openrec-serving-graph-token-change-me")},
-            body=[{"userId": "user_0", "itemIds": SMOKE_TRIGGER_ITEMS,
-                   "scene": "scene_0", "size": 12, "type": "click",
+            body=[{"userId": "user_0", "scene": "scene_0", "size": 12, "type": "click",
                    "targetType": "item", "params": {"ab": "default", "query": "item"}}],
         )
         for _ in range(150):
