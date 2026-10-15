@@ -47,8 +47,9 @@ for type in user item; do
   id_var="${USER_ID}"; [[ "${type}" == item ]] && id_var="${ITEM_ID}"
   found=false
   for attempt in {1..60}; do
+    # Consume the complete stream: grep -q can SIGPIPE upstream under pipefail.
     if docker exec namenode hdfs dfs -cat "/openrec/hive/${type}/dt=${TODAY}/*" 2>/dev/null \
-        | grep -F "\"operation\":\"DELETE\"" | grep -Fq "\"id\":\"${id_var}\""; then
+        | grep -F "\"operation\":\"DELETE\"" | grep -F "\"id\":\"${id_var}\"" >/dev/null; then
       found=true; break
     fi
     sleep 1
