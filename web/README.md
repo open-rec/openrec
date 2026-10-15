@@ -85,8 +85,10 @@ Only selected candidates appear in the Web Demo. An absent channel badge does no
 recall failed. The startup smoke uses debug `recallDiagnostics` from before filtering, ranking
 and truncation, so one overlapping item can demonstrate supply from several recall channels.
 
-`rank=-` means the rank stage did not run — `rankScore` is null rather than 0, so "the rank engine is
-down" stays distinguishable from "the model scored this 0". Standalone deliberately bypasses
+`rank=-` means no rank score is available. It can indicate deliberate bypass or fallback after
+a ranking failure or timeout; it does not identify the cause on its own. A successful model
+score of 0 remains distinct from null. Inspect the request's `graph_trace` and service logs to
+distinguish bypass from failures and timeouts. Standalone deliberately bypasses
 ranking; starting rank-engine alone does not enable it. Use the complete
 [cluster startup](../example_cluster/README.md) to validate real ranking, displayed as `rank=0.7700`.
 
@@ -104,7 +106,7 @@ Fields on each item in the API response:
 | `score` | final ordering score after configured recall/rank fusion |
 | `recallFrom` | first contributing channel; used as the primary operation-rule bucket |
 | `recallScore` | score entering the rank stage; null if it never got there |
-| `rankScore` | the rank engine's contribution; null if ranking did not run |
+| `rankScore` | the rank engine's contribution; null on bypass or fallback after a failure/timeout |
 | `recallScores` | every channel that recalled it → that channel's score |
 | `meta` | the same breakdown as one line, e.g. `recall=content_i2i:0.0959,hot:0.5833; rank=-` |
 
@@ -199,8 +201,11 @@ in cluster, the browser reports visible cards. Readiness probes do not write syn
 fixture's candidate pool and leave 猜你喜欢 empty.
 
 **重置曝光** deletes `event:{userId}:{scene}:expose` and the pool comes back. It writes to Redis
-directly because `PushRedisService.pushEvent` only implements INSERT/UPDATE — the sdk has no way to
-delete events.
+directly to clear the whole serving-state key. Standalone event `DELETE` can remove specified
+item members through the SDK, but cannot express this whole-key reset; cluster rejects public
+event `DELETE`. Resetting these Redis keys does not erase Kafka/Hive history or retract
+data-processor feature aggregates. Prefixed dislike rules are cleared by the dedicated dislike
+reset endpoint, not by treating them as ordinary item IDs.
 
 ## api
 

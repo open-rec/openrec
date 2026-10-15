@@ -307,7 +307,7 @@ The cluster stop command does not touch `example_standalone` processes or contai
 | Processing | Not required | Spark data-processor writes Redis and Hive-backed storage |
 | Ranking service | Disabled | rank-engine container |
 | Airflow workflow | Not required | Bootstrap, daily recall, model release, and rollback DAGs |
-| Default artifact bootstrap | Hash-validated `model/` reuse or rebuild | Same bundle; cluster releases may overwrite defaults |
+| Default artifact bootstrap | Hash-validated `model/` reuse or rebuild | Same validated bootstrap bundle; runtime releases are separate and do not overwrite repository defaults |
 | Recall publishing | `model/recall` import | Spark staging writes with `rec-console` version control |
 | rec-server profile | `standalone` | `cluster` |
 | Exposure collection | Synthetic exposure enabled | Synthetic exposure disabled; browser reports cards visible at least 50% through Push API |

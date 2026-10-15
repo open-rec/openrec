@@ -179,7 +179,7 @@ flowchart LR
     Quality --> Build[Cross-repository build and tests]
     Build --> Standalone[Standalone E2E]
     Main[Default branch or schedule] --> Standalone
-    Schedule[Schedule or manual dispatch] --> Cluster[Cluster E2E on dedicated runner]
+    Schedule[Schedule or manual dispatch] --> Cluster[Cluster startup E2E on GitHub-hosted runner]
     Tag[Version tag] --> Bundle[Validated release bundle + checksums]
 ```
 
@@ -187,7 +187,7 @@ flowchart LR
 |---|---|---|---|
 | `quality.yml` | Pull request and push | GitHub-hosted | Manifest, links, generated files, shell, Python DAGs, Compose, Java build/tests, Python/Flink/Spark feature parity |
 | `standalone-e2e.yml` | Main changes, schedule, manual | GitHub-hosted | Complete standalone startup and recommendation acceptance |
-| `cluster-e2e.yml` | Schedule and manual | GitHub-hosted | Complete distributed data, recall, analytics, deletion, model lifecycle |
+| `cluster-e2e.yml` | Schedule and manual | GitHub-hosted | Cluster startup, platform smoke, feature parity, warmup, recall diagnostics, ranked recommendations, Kafka ingestion |
 | `release.yml` | `v*` tag | GitHub-hosted | Version consistency, distribution archive, SHA-256 checksums, GitHub Release |
 
 Cluster CI runs on a GitHub-hosted runner with constrained JVM heaps, reduced parallelism, and an
@@ -195,6 +195,11 @@ explicit disk-space cleanup step. It is scheduled and manually dispatchable rath
 check on every pull request because it starts Kafka, HDFS, Hive, HBase, Spark, Flink, Airflow,
 Redis, Elasticsearch, monitoring, and all OpenRec applications together. Resource assumptions and
 failure diagnostics are documented in [CI](docs/ci.md).
+
+The cluster workflow does not run every `verify_*.sh` lifecycle check. For the registered full
+regression, use the sibling [auto-test](https://github.com/open-rec/auto-test) runner: its cluster
+`full` suite adds deletion, analytics, daily recall and model lifecycle checks plus API and browser
+coverage. Its standalone suite verifies the capabilities supported in that mode.
 
 ## Versioning and releases
 

@@ -31,18 +31,26 @@ The diagram is deployment-level. The recall, filtering, combination, and operati
 
 ## Prerequisites and layout
 
-Install Docker with the Compose plugin, JDK 21, and Maven 3.9+. Keep the component repositories in
+Install Docker with the Compose plugin, JDK 21, Maven 3.9+, Python 3, curl, and rsync. Keep the component repositories in
 the workspace layout used by this project:
 
 ```text
 openrec/
 ├── bigdata-platform/
-├── rec-algorithm/       # optional: regenerate the bundled recall datasets
+├── data-processor/      # packaged feature contracts checked during artifact preparation
+├── rank-engine/         # build context for the artifact-builder image when needed
+├── rec-algorithm/       # required artifact validation and generation tools
 ├── rec-console/
 ├── rec-server/
 ├── sdk/
 └── example/
 ```
+
+These are source-build dependencies, not additional standalone services: neither data-processor
+nor rank-engine runs as a standalone application. Startup checks the packaged feature contracts
+and uses rec-algorithm to validate the model bundle. If it is absent or stale, startup rebuilds
+it in the rank-engine image, building that image if necessary. The sibling `model/` directory
+may be reused when valid or generated on demand.
 
 All commands below start from the `openrec/` workspace root. The serving containers use the values
 defined in `bigdata-platform/.env`:
@@ -150,6 +158,7 @@ working directory:
 
 ```shell
 cd example
+./scripts/ensure-model-artifacts.sh
 java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
   com.openrec.example.InitStandalone \
   127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
@@ -181,7 +190,8 @@ The graph keeps the `rank` node enabled so Cluster can use the same DAG. In Stan
 combine result to the operation strategy without contacting `rank-engine`.
 
 ```shell
-docker compose -f rec-server/docker-compose.standalone.yml up -d --build --wait
+RECOMMEND_WARMUP_USER_ID=user_0 RECOMMEND_WARMUP_SCENE=scene_0 \
+  docker compose -f rec-server/docker-compose.standalone.yml up -d --build --wait
 ```
 
 The default operation rule allocates results across `item_cf_i2i`, `content_i2i`, `user_cf_u2i`,
@@ -196,7 +206,16 @@ published items.
 ## 5. Verify recommendations
 
 ```shell
-curl http://127.0.0.1:13579/health
+# Wait for automatic warmup; fail explicitly if readiness does not complete.
+ready=false
+for attempt in $(seq 1 120); do
+  if curl -fsS http://127.0.0.1:13579/ready; then
+    ready=true
+    break
+  fi
+  sleep 1
+done
+[ "$ready" = true ] || { echo "Recommendation warmup failed" >&2; exit 1; }
 
 curl -s -X POST http://127.0.0.1:13579/api/recommend/item \
   -H 'Content-Type: application/json' -d '{
