@@ -78,3 +78,7 @@ Existing live indexes and runtime configurations are not automatically modified 
 Bootstrap v17 renames item/user `sparse.csv` to `text_search.csv`, preserving their
 contents. The removed Qwen-only manifest is no longer required or emitted; the bundle
 manifest continues to checksum all artifacts. Serving algorithm/channel `sparse` is unchanged.
+
+Bootstrap v18 removes optional `item_content_emb.csv` from the default bundle and retains
+`item_title_emb.csv`. The generator supports `--include-content` for explicit offline generation.
+The default manifest covers 40 artifacts (27 rank files and 13 recall tables).

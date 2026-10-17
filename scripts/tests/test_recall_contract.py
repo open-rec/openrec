@@ -86,7 +86,7 @@ class RecallContractTest(unittest.TestCase):
         root = WORKSPACE / 'model/recall/item'
         manifest = json.loads((WORKSPACE / 'model/default.manifest.json').read_text())
         identities = []
-        for name in ('item_content_emb.csv', 'item_title_emb.csv'):
+        for name in ('item_title_emb.csv',):
             path = root / name
             self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), manifest['outputs']['recall/item/' + name])
             with path.open() as stream:
@@ -97,5 +97,8 @@ class RecallContractTest(unittest.TestCase):
                 vector = json.loads(row['vector'])
                 self.assertEqual(len(vector), 1024)
                 self.assertAlmostEqual(math.sqrt(sum(value * value for value in vector)), 1., places=5)
-        self.assertEqual(identities[0], identities[1])
+        with (WORKSPACE / 'example/data/test/item.csv').open() as stream:
+            expected = [(row['scene'], row['id']) for row in csv.DictReader(stream)]
+        self.assertEqual(identities[0], expected)
+        self.assertFalse((root / 'item_content_emb.csv').exists())
         self.assertFalse((root / 'query_embedding.csv').exists())
