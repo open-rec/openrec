@@ -169,8 +169,8 @@ The start script first validates `model/default.manifest.json` against the raw C
 stale deployable artifacts. The loader imports users, items, events and feature snapshots into
 Redis. It loads hot, new, item-CF I2I, content I2I, UserCF U2I, and item/user BM25 documents into
 versioned Elasticsearch indexes behind `openrec-recall-{tableName}-active`, and `item_seq_emb` vectors into the per-scene vector
-index. Development-only Redis copies of those recall tables are also loaded for RecallStore parity checks,
-but the standalone rec-server uses `ElasticsearchRecallStore` by default. Direct loader invocation
+index. Recall tables are stored only in Elasticsearch; Redis holds online state, including
+entities, features and click/exposure history. Direct loader invocation
 accepts optional `data_dir` and `model_dir` arguments.
 
 Verify the imported data through the containers:

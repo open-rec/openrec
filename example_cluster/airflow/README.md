@@ -28,6 +28,14 @@ The daily recall schedule, algorithm order, revision, retention, and retry polic
 versioned configuration published by rec-console. Airflow remains the execution and run-state
 authority; rec-console never edits the Python DAG source.
 
+Publication task IDs use `publish-<tableName>`, with `tableName` matching rec-server's
+`item_graph.json` or `user_graph.json`. Examples are `publish-item-search`,
+`publish-user-search`, `publish-item-cf-i2i`, and `publish-user-als-u2u`. Internal
+algorithm arguments keep underscore names (`text_search` is selected by target).
+After upgrading, republish saved configurations with `text_search` instead of
+`sparse` and `user_als_u2u` instead of `user_emb_u2u`, then reparse the DAGs. Finish
+or stop older runs before using the renamed tasks; historical task IDs are retained.
+
 ## Rank training boundary
 
 rec-console validates feature selection through the rec-algorithm runner, then triggers
@@ -66,7 +74,7 @@ upstream task, diagnostics and the matching request ID in rec-server's `graph_tr
 
 The default item pipeline excludes title embeddings so GitHub CI needs no GPU, vLLM,
 or Qwen weights. Explicitly add `query_title_emb` through rec-console on GPU deployments
-to create `publish_query_title_emb`, invoking the runner's
+to create `publish-query-title-emb`, invoking the runner's
 `query_title_emb` algorithm. It encodes current item titles through vLLM and delegates
 release preparation/activation to rec-console for the global `query-title-emb-index` alias.
 Set `EMBEDDING_ENABLED=true` and matching model/endpoint/dimension settings when deploying

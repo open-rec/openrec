@@ -58,8 +58,8 @@ Only query-related names change: the user query CSV becomes `user_als_emb.csv`;
 the item file remains `query_embedding.csv`. Both preserve their vector values.
 Existing rank, item-sequence and user-ALS artifacts and algorithms are unchanged.
 
-The Qwen experiment channel is `query_qwen_emb`, including its graph references and weights.
-It reads the separate `query-title-emb-index`; optional embedding-enabled bootstrap now
+The historical experiment used `query_qwen_emb`. The current online channel is
+`query_title_emb` and reads the global `query-title-emb-index`; optional embedding-enabled bootstrap
 loads Qwen3-Embedding-0.6B title vectors into this index. Historical experiment vectors remain separate.
 Qwen query vectors must use the same model and preprocessing as its candidate index.
 `params.queryEmbedding` and the generic vector API remain compatible. Existing graph releases
@@ -82,7 +82,7 @@ manifest continues to checksum all artifacts. Serving now uses channels `item_se
 
 Bootstrap v18 removes optional `item_content_emb.csv` from the default bundle and retains
 `item_title_emb.csv`. The generator supports `--include-content` for explicit offline generation.
-The default manifest covers 40 artifacts (27 rank files and 13 recall tables).
+The v18 manifest covered 40 artifacts (27 rank files and 13 recall tables).
 
 The rec-server full-text recall implementation now uses `SearchNode` / `SearchConfig`
 (type `item.search`). The graphs use `item_search` / `user_search`, with `item-search` / `user-search` serving tables.
@@ -96,8 +96,15 @@ configurations to replace `sparse` with `text_search`; the user DAG includes `te
 with `target_type=user`. Reinitialize both model text tables before activating graph overrides.
 Persisted graph overrides must use `item.search` / `user.search`, `SearchConfig`, channels
 `item_search` / `user_search`, and tables `item-search` / `user-search`. Old `openrec-recall-sparse-active`
-indexes are not reused. Pinned release refs still describe the previous released distribution
-until these companion changes are committed and a new release is pinned.
+indexes are not reused. The current `release/openrec.json` pins the compatible companion commits; historical
+release tags remain unchanged.
+
+Daily recall Airflow publication tasks use `publish-<tableName>`, matching rec-server's
+`item_graph.json` and `user_graph.json`: for example, `publish-item-search`,
+`publish-user-search`, and `publish-item-seq-emb`. Internal algorithm arguments retain
+their underscore names. Reparse both DAGs after migrating saved configurations; finish
+or stop old runs before starting runs with the new task IDs. Historical run task IDs
+are not renamed.
 
 ## CPU bootstrap without language-model dependencies (v19)
 

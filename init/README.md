@@ -114,12 +114,11 @@ The shared standalone/cluster initializer reads `model/recall/item/text_search.c
 indexes, verifies document counts, then atomically switches `openrec-recall-item-search-active`
 and `openrec-recall-user-search-active`, respectively. Requests use `params.query`.
 
-`new.csv` supplies a normalized freshness score in `[0, 1]`. The loader projects it onto the Unix
-time domain expected by `NewNode` by multiplying every score by one timestamp captured at the start
-of the new-table import. This preserves ordering and lets the configured duration query select the
-freshest rows. `NewNode` and the Web Demo divide the stored value by the query-time Unix timestamp
-before returning it, so clients continue to receive a normalized score. Future online writes can
-use their event Unix timestamp directly.
+`new.csv` supplies a normalized freshness score in `[0, 1]`. The loader preserves that
+`score` and derives `publish_time` by multiplying it by one Unix timestamp captured at
+the start of the import. Elasticsearch filters by `publish_time` and returns the stored
+normalized score. This bootstrap approximation differs from offline releases that supply
+an actual publication timestamp.
 
 The active online recall contract, stable aliases, and storage implementations are documented in
 the [`rec-server` RecallStore guide](https://github.com/open-rec/rec-server#recall-store).
@@ -130,14 +129,14 @@ the [`rec-server` RecallStore guide](https://github.com/open-rec/rec-server#reca
 docker exec redis redis-cli DBSIZE
 docker exec redis redis-cli GET 'user:{user_0}'
 docker exec redis redis-cli ZCARD 'event:{user_247}:scene_0:click'
-curl -k -u elastic:openrec-es-password 'https://localhost:9200/_cat/indices/*vector*?v'
+curl -k -u elastic:openrec-es-password 'https://localhost:9200/_cat/indices/*item-seq-emb-index*?v'
 ```
 
 ## notes
 
 - **It logs almost nothing on success.** There is no `log4j2.xml`, so Log4j2 defaults to root level ERROR and the per-table "finished" messages are discarded. Verify by querying Redis/ES, not by reading the output.
 - Elasticsearch 8 requires `https` and credentials; self-signed certificates are trusted deliberately (`EsUtil` uses an unsafe trust manager) since this is a local bootstrap tool.
-- The loader writes row by row without pipelining. Fine for the sample data; expect it to be slow on the full Douban `item_cf_i2i` table (~1M rows).
+- Redis entities/events are written row by row. Elasticsearch table recall uses bulk batches of 1,000 documents; loading time grows with the dataset.
 
 
 When `EMBEDDING_ENABLED=true`, the initializer also reads `recall/item/item_title_emb.csv`,
