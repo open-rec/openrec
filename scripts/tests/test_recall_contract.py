@@ -25,8 +25,10 @@ def constants(path):
 
 class RecallContractTest(unittest.TestCase):
     def test_files_dags_publishers_and_graphs_agree(self):
-        if not (WORKSPACE / 'rec-server').is_dir() or not (WORKSPACE / 'model').is_dir():
-            self.skipTest('requires sibling source repositories and model bundle')
+        if not (WORKSPACE / 'rec-server').is_dir():
+            self.skipTest('requires sibling source repositories')
+        manifest_path = WORKSPACE / 'model/default.manifest.json'
+        manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else None
         publisher = constants(WORKSPACE / 'rec-algorithm/jobs/spark/recall_job.py')['SERVING_TABLES']
         tree = ast.parse((WORKSPACE / 'rec-algorithm/publisher/spark.py').read_text())
         publish = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
@@ -62,7 +64,9 @@ class RecallContractTest(unittest.TestCase):
                 with self.subTest(target=target, algorithm=algorithm):
                     artifact = "item_title_emb" if algorithm == "query_title_emb" else algorithm
                     path = WORKSPACE / f'model/recall/{target}/{artifact}.csv'
-                    self.assertTrue(path.is_file(), path)
+                    if manifest is not None and (algorithm != 'query_title_emb' or
+                            f'recall/{target}/{artifact}.csv' in manifest['outputs']):
+                        self.assertTrue(path.is_file(), path)
                     channel = dag['RECALL_TYPES'][algorithm]
                     if algorithm == 'item_seq_emb':
                         self.assertEqual(channels[channel], 'item-seq-emb')
@@ -72,7 +76,7 @@ class RecallContractTest(unittest.TestCase):
                         table = f'{target}-search' if algorithm == 'text_search' else publisher[algorithm]
                         self.assertEqual(dag['SERVING_TABLES'][algorithm], table)
                         self.assertEqual(channels[channel], table)
-                    if target == 'user':
+                    if target == 'user' and path.is_file():
                         with path.open() as stream:
                             self.assertEqual(next(csv.reader(stream)),
                                              ['scene', 'user', 'text'] if algorithm == 'text_search' else
@@ -101,7 +105,12 @@ class RecallContractTest(unittest.TestCase):
         import math
 
         root = WORKSPACE / 'model/recall/item'
-        manifest = json.loads((WORKSPACE / 'model/default.manifest.json').read_text())
+        manifest_path = WORKSPACE / 'model/default.manifest.json'
+        if not manifest_path.is_file():
+            self.skipTest('optional precomputed model bundle is not checked out')
+        manifest = json.loads(manifest_path.read_text())
+        if 'recall/item/item_title_emb.csv' not in manifest['outputs']:
+            self.skipTest('CPU bootstrap bundle has no optional language vectors')
         identities = []
         for name in ('item_title_emb.csv',):
             path = root / name

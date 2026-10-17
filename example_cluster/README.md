@@ -366,3 +366,8 @@ DAG templates. Existing custom/published DAG configs retain their explicit algor
 add `query_title_emb` through the console and publish a new configuration version to enable
 it there. A disabled embedding provider or failed generation is a task failure, not a
 successful empty release. No changes to user-event ingestion are included in these jobs.
+
+Default artifact initialization uses the CPU bundle (v19) and requires no Qwen
+weights or transformers. Existing verified `item_title_emb.csv` is preserved during
+rebuilds. To enable query embedding, provide matching precomputed title vectors
+and the inference service; the default bootstrap does not generate language vectors.

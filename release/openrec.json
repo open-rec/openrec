@@ -21,14 +21,14 @@
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "1cfd311de1f70176eae65b24864bb5777f03b2c2",
+      "ref": "c6ad3f28f840cbd2cb903c6687be379106bf0488",
       "required_for": [
         "cluster"
       ]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "bebea78a43c50f1637f5d9760385bddedaf97256",
+      "ref": "3b884b2c91c3506f9b0ac99f636bcec877ab2819",
       "required_for": [
         "standalone",
         "cluster"
@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "7381bfc05bf34bc62b81a4c8d1fb627fbedc98ef",
+      "ref": "6474bf33e6bb669c15950b7078fcc6b66a450aa8",
       "required_for": [
         "standalone",
         "cluster"
@@ -65,6 +65,6 @@
     "release_manifest": 1,
     "recommendation_readiness": 1,
     "recommendation_recall_diagnostics": 1,
-    "bootstrap_artifacts": 18
+    "bootstrap_artifacts": 19
   }
 }

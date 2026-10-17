@@ -74,3 +74,8 @@ Historical release tags above remain unchanged; current component refs are recor
 Recall storage is now Elasticsearch-only. Deploy rec-server with the companion example
 initializer and rec-algorithm publisher cleanup; remove obsolete `RECALL_STORE` /
 `recall.store` overrides from deployment settings. Redis remains required for online state.
+
+Bootstrap v19 makes title language vectors optional for CPU-only initialization.
+The companion rec-algorithm builder/checker preserves verified precomputed vectors
+and checksums them when present; standalone and cluster use the same builder.
+Online embedding still requires a matching title-vector table and inference service.

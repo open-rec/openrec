@@ -273,3 +273,8 @@ embedding compatibility and initializes `item_title_emb.csv` into the Qwen alias
 Default startup does not require vLLM or GPU. Graph overrides from previous deployments
 need the new query timeout/configuration. Direct component Compose deployments must
 initialize candidate vectors separately before enabling online query embeddings.
+
+Default artifact initialization uses the CPU bundle (v19) and requires no Qwen
+weights or transformers. Existing verified `item_title_emb.csv` is preserved during
+rebuilds. To enable query embedding, provide matching precomputed title vectors
+and the inference service; the default bootstrap does not generate language vectors.

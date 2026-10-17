@@ -98,3 +98,10 @@ Persisted graph overrides must use `item.search` / `user.search`, `SearchConfig`
 `item_search` / `user_search`, and tables `item-search` / `user-search`. Old `openrec-recall-sparse-active`
 indexes are not reused. Pinned release refs still describe the previous released distribution
 until these companion changes are committed and a new release is pinned.
+
+## CPU bootstrap without language-model dependencies (v19)
+
+Default standalone and cluster artifact generation no longer loads Qwen or requires
+transformers. Existing title vectors are reused when item data and checksums match;
+explicit offline generation uses `--include-text-embeddings`. Quality checks run with
+source components alone and skip only checks requiring an optional precomputed bundle.
