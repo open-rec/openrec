@@ -180,8 +180,8 @@ The same DAG directory defines `openrec_daily_recall` for `02:00 UTC`,
 are paused by default, so enable the required daily DAGs in Airflow when publication should begin.
 Bootstrap does not run them: the item DAG submits hot/new/`item_cf_i2i`/`content_i2i`/
 `user_cf_u2i`/`item_seq_emb`/`sparse`, while the user DAG submits `user_cf_u2u`/`content_u2u` and the
-internally named `user_emb_u2u` ALS job, which publishes the `user-als-emb` serving table consumed
-as `user_als_emb`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
+internally named `user_als_u2u` ALS job, which publishes the `user-als-u2u` serving table consumed
+as `user_als_u2u`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
 versioned Elasticsearch indexes, ask `rec-console` to atomically activate their aliases, and finish
 with an online recommendation check.
 

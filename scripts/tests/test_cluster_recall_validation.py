@@ -31,7 +31,7 @@ class ClusterRecallValidationTest(unittest.TestCase):
 
     def test_smoke_triggers_exist_in_bundled_recall_data(self):
         triggers = namespace["SMOKE_TRIGGER_ITEMS"]
-        root = SOURCE.parents[4] / "model" / "recall"
+        root = SOURCE.parents[4] / "model" / "recall" / "item"
         if not root.is_dir():
             self.skipTest("requires the model repository with bundled recall fixtures")
         for table, key in [("item_cf_i2i", "left_item"),

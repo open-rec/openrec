@@ -143,16 +143,16 @@ assert release and int(release.get("documents", 0)) > 0, value
 ' "${expected}" <<<"${release}" || die "${algorithm} release verification failed"
 done
 
-embedding_index="scene_0-item-vector-index-${BUSINESS_DATE//-/}-${REVISION}"
+embedding_index="scene_0-item_seq_emb-index-${BUSINESS_DATE//-/}-${REVISION}"
 embedding_alias="$(docker exec elasticsearch curl -sku elastic:openrec-es-password \
-  "https://127.0.0.1:9200/_alias/scene_0-item-vector-index")"
+  "https://127.0.0.1:9200/_alias/scene_0-item_seq_emb-index")"
 python3 -c '
 import json, sys
 value, expected = json.load(sys.stdin), sys.argv[1]
 assert list(value) == [expected], value
 ' "${embedding_index}" <<<"${embedding_alias}" || die "embedding alias verification failed"
 embedding_count="$(docker exec elasticsearch curl -sku elastic:openrec-es-password \
-  "https://127.0.0.1:9200/scene_0-item-vector-index/_count")"
+  "https://127.0.0.1:9200/scene_0-item_seq_emb-index/_count")"
 python3 -c 'import json,sys; value=json.load(sys.stdin); assert int(value.get("count", 0)) > 0, value' \
   <<<"${embedding_count}" || die "embedding index is empty"
 

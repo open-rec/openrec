@@ -21,14 +21,14 @@
     },
     "rank-engine": {
       "repository": "https://github.com/open-rec/rank-engine.git",
-      "ref": "53cb46f130cff1073846c7a9a005aaa901f8916d",
+      "ref": "1cfd311de1f70176eae65b24864bb5777f03b2c2",
       "required_for": [
         "cluster"
       ]
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "e2bab2c3a4d0692756da9eb4abd4414e126bab87",
+      "ref": "5c36af52a423702f4799f7b1f2a5546f2dd820d0",
       "required_for": [
         "standalone",
         "cluster"
@@ -36,7 +36,7 @@
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "eeee4b08f233b0262f863f3b664552e8e81ba7aa",
+      "ref": "b69a38e45b260f8e0c678e94cd9b2a2a6de81a6f",
       "required_for": [
         "standalone",
         "cluster"
@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "3b2c38d3e8a649a01ac490e7bb4607476e3b809e",
+      "ref": "7c78f1e10de430868863416f1e157a0d2d5ac59b",
       "required_for": [
         "standalone",
         "cluster"
@@ -64,6 +64,7 @@
     "kafka_mutation_envelope": 1,
     "release_manifest": 1,
     "recommendation_readiness": 1,
-    "recommendation_recall_diagnostics": 1
+    "recommendation_recall_diagnostics": 1,
+    "bootstrap_artifacts": 17
   }
 }

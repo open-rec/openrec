@@ -72,10 +72,10 @@ example/data/test/
 └── event.csv         id,user_id,item_id,trace_id,scene,type,value,time,is_login,ext_fields
 
 model/
-├── rank/item/
+├── rank/item/lr/
 │   ├── user_feature.csv
 │   └── item_feature.csv
-└── recall/
+└── recall/item/
     ├── item_cf_i2i.csv  scene,left_item,right_item,score
     ├── content_i2i.csv  scene,left_item,right_item,score
     ├── user_cf_u2i.csv  scene,user,item,score
@@ -95,14 +95,14 @@ loader.
 | `item.csv` | `item:{itemId}` | JSON string |
 | `user.csv` | `user:{userId}` | JSON string |
 | `event.csv` | `event:{userId}:{scene}:{type}` | sorted set, score = event time |
-| `rank/item/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
-| `rank/item/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
-| `recall/item_cf_i2i.csv` | `item-cf-i2i:{leftItem}:{scene}` | sorted set |
-| `recall/content_i2i.csv` | `content-i2i:{leftItem}:{scene}` | sorted set |
-| `recall/user_cf_u2i.csv` | `user-cf-u2i:{userId}:{scene}` | sorted set |
-| `recall/hot.csv` | `hot:{scene}` | sorted set |
-| `recall/new.csv` | `new:{scene}` | sorted set, score = normalized score × load-time Unix timestamp |
-| `recall/item_seq_emb.csv` | `{scene}-item-vector-index` | Elasticsearch, `dense_vector` (10 dims) |
+| `rank/item/lr/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
+| `rank/item/lr/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
+| `recall/item/item_cf_i2i.csv` | `item-cf-i2i:{leftItem}:{scene}` | sorted set |
+| `recall/item/content_i2i.csv` | `content-i2i:{leftItem}:{scene}` | sorted set |
+| `recall/item/user_cf_u2i.csv` | `user-cf-u2i:{userId}:{scene}` | sorted set |
+| `recall/item/hot.csv` | `hot:{scene}` | sorted set |
+| `recall/item/new.csv` | `new:{scene}` | sorted set, score = normalized score × load-time Unix timestamp |
+| `recall/item/item_seq_emb.csv` | `{scene}-item_seq_emb-index` | Elasticsearch, `dense_vector` (10 dims) |
 
 The same recall CSVs are also loaded into versioned Elasticsearch indexes behind their
 `openrec-recall-{tableName}-active` aliases. The vector indexes are **dropped and recreated** on

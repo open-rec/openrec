@@ -12,13 +12,17 @@ REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
     "schedule": "30 2 * * *",
-    "algorithms": ["user_cf_u2u", "content_u2u", "user_emb_u2u"],
+    "algorithms": ["user_cf_u2u", "content_u2u", "user_als_u2u"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
 }
 SERVING_TABLES = {
     "user_cf_u2u": "user-cf-u2u", "content_u2u": "content-u2u",
-    "user_emb_u2u": "user-als-emb",
+    "user_als_u2u": "user-als-u2u",
+}
+RECALL_TYPES = {
+    "user_cf_u2u": "user_cf_u2u", "content_u2u": "content_u2u",
+    "user_als_u2u": "user_als_u2u",
 }
 CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_user_recall.json")
 try:
@@ -81,7 +85,7 @@ def openrec_daily_user_recall():
         channels = {result.get("recallFrom") for result in results}
         for result in results:
             channels.update((result.get("recallScores") or {}).keys())
-        missing = set(algorithms) - channels
+        missing = {RECALL_TYPES[algorithm] for algorithm in algorithms} - channels
         if missing:
             raise RuntimeError("online user recall misses channels %s: %s" %
                                (sorted(missing), response))

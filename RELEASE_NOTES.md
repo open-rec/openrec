@@ -27,3 +27,54 @@ This initial release establishes a versioned source baseline. Source archives an
 ## Component versions
 
 See [the exact component commits](release/COMPONENTS.md) and [distribution manifest](release/openrec.json). Every product repository is tagged `v0.1.0` on its `release/0.1.0` branch.
+
+## Workspace bootstrap artifact layout v12
+
+Use companion rec-algorithm builder/checker changes and rank-engine Compose paths together:
+`rank/{item,user}/{lr,fm,lightgbm}/` and `recall/{item,user}/`. The initializer reads item LR
+snapshots and item recall tables. Additional user/query/sparse CSVs are available as offline
+artifacts; their presence does not activate new serving channels. The component refs above remain
+published release refs; this workspace change must be pinned to new companion commits before a
+new distribution release. To roll back, restore the v11 bundle and matching consumers together.
+
+## Recall naming migration (bootstrap v13)
+
+Apply rec-algorithm, rec-server, rec-console and example companion changes together. The item
+vector table is now `item_seq_emb`, with `{scene}-item_seq_emb-index` aliases and matching
+versioned indexes. User algorithm/task/CSV names are `user_als_u2u`; daily Hive output is
+`openrec.recall_user_als_u2u`. The existing `user-als-u2u` serving table and `user_als_u2u`
+response channel remain the mapping for user recall. Local bootstrap data now uses implicit ALS.
+
+Before enabling the updated graph, republish item embeddings under the new alias (or rerun
+standalone initialization). Existing deployed DAG-config overrides must replace the old user
+algorithm name with `user_als_u2u`. Existing runtime graph overrides must update both item
+embedding table names. Old indexes/Hive tables are retained; rollback requires the prior graph,
+DAG configuration and component versions together. No running services or stored overrides are
+modified by these source changes.
+
+## Query embedding naming (bootstrap v14)
+
+Only query-related names change: the user query CSV becomes `user_als_emb.csv`;
+the item file remains `query_embedding.csv`. Both preserve their vector values.
+Existing rank, item-sequence and user-ALS artifacts and algorithms are unchanged.
+
+The Qwen experiment channel is `query_qwen_emb`, including its graph references and weights.
+It reads the separate `{scene}-query_qwen_emb-index`; bootstrap does not populate this index.
+Qwen query vectors must use the same model and preprocessing as its candidate index.
+`params.queryEmbedding` and the generic vector API remain compatible. Existing graph releases
+must migrate the query channel, weights and table together. Historical experiment results and
+upstream cache filenames are retained. Roll back graph and artifact naming versions together.
+
+## Bootstrap v16: distinguish ALS vectors and U2U edges
+
+`recall/user/user_als_emb.csv` now contains `scene,user,vector`; the former edge table
+is `user_als_u2u.csv` (`scene,left_user,right_user,score`). The v15-to-v16 migration
+preserves all artifact bytes and stages both files before promotion to prevent name collisions.
+Airflow/Spark algorithm and graph channel become `user_als_u2u`; the serving table becomes
+`user-als-u2u`. Deploy the companion rec-algorithm, rec-console and rec-server changes together,
+republish the U2U index, and update persisted DAG/graph overrides from the old ALS names.
+Existing live indexes and runtime configurations are not automatically modified by this source migration.
+
+Bootstrap v17 renames item/user `sparse.csv` to `text_search.csv`, preserving their
+contents. The removed Qwen-only manifest is no longer required or emitted; the bundle
+manifest continues to checksum all artifacts. Serving algorithm/channel `sparse` is unchanged.

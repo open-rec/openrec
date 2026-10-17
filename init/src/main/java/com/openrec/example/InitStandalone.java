@@ -105,8 +105,8 @@ public class InitStandalone {
     private static void useModelDir(String modelDir) {
         String absolute = Paths.get(modelDir).isAbsolute() ? modelDir
                 : System.getProperty("user.dir") + "/" + modelDir;
-        featureDataDir = absolute + "/rank/item";
-        String recallDataDir = absolute + "/recall";
+        featureDataDir = absolute + "/rank/item/lr";
+        String recallDataDir = absolute + "/recall/item";
         testRecallI2iData = recallDataDir + "/item_cf_i2i.csv";
         testRecallContentI2iData = recallDataDir + "/content_i2i.csv";
         testRecallUserCfU2iData = recallDataDir + "/user_cf_u2i.csv";
@@ -348,7 +348,7 @@ public class InitStandalone {
 
             for (Map.Entry<String, List<Pair<String, List<Double>>>> entry : sceneItemVectorsMap.entrySet()) {
                 String scene = entry.getKey();
-                String indexName = String.format("%s-item-vector-index", scene);
+                String indexName = String.format("%s-item_seq_emb-index", scene);
 
                 // The daily publisher migrates this legacy serving index to an alias pointing at a
                 // versioned index. Elasticsearch deliberately rejects DELETE /{alias}; resolve and

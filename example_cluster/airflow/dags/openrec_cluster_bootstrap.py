@@ -110,7 +110,7 @@ def _recall_counts():
         "openrec-recall-content-i2i-active",
         "openrec-recall-user-cf-u2i-active",
         "openrec-recall-sparse-active",
-        "scene_0-item-vector-index",
+        "scene_0-item_seq_emb-index",
     ):
         try:
             response = _request(

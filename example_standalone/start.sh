@@ -151,9 +151,9 @@ read -r smoke_user smoke_item < <(python3 - "${WORKSPACE}" <<'PY'
 import csv, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 left = {row["left_item"] for row in csv.DictReader(
-    (root / "model/recall/item_cf_i2i.csv").open()) if row["scene"] == "scene_0"}
+    (root / "model/recall/item/item_cf_i2i.csv").open()) if row["scene"] == "scene_0"}
 user_cf = {row["user"] for row in csv.DictReader(
-    (root / "model/recall/user_cf_u2i.csv").open()) if row["scene"] == "scene_0"}
+    (root / "model/recall/item/user_cf_u2i.csv").open()) if row["scene"] == "scene_0"}
 for row in csv.DictReader((root / "example/data/test/event.csv").open()):
     if (row["scene"] == "scene_0" and row["type"] == "click" and
             row["item_id"] in left and row["user_id"] in user_cf):
@@ -167,7 +167,7 @@ i2i_count="$(docker exec redis redis-cli ZCARD "item-cf-i2i:{${smoke_item}}:scen
 docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${smoke_item}\"" | grep -Eq '[0-9]+' \
   || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
-  'https://localhost:9200/_cat/indices/scene_0-item-vector-index?h=index' >/dev/null \
+  'https://localhost:9200/_cat/indices/scene_0-item_seq_emb-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
 for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i sparse; do
   docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \

@@ -280,7 +280,7 @@ for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
   wait_for_es_documents "${recall_kind} recall alias" \
     "openrec-recall-${recall_kind}-active"
 done
-wait_for_es_documents "embedding recall index" "scene_0-item-vector-index"
+wait_for_es_documents "embedding recall index" "scene_0-item_seq_emb-index"
 
 export RECOMMEND_WARMUP_USER_ID=user_0
 export RECOMMEND_WARMUP_SCENE=scene_0
