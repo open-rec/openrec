@@ -178,8 +178,17 @@ else:
     raise SystemExit("no scene_0 click has an i2i recall table")
 PY
 )
-i2i_count="$(docker exec redis redis-cli ZCARD "item-cf-i2i:{${smoke_item}}:scene_0" | tr -d '\r')"
-[[ "${i2i_count}" =~ ^[1-9][0-9]*$ ]] || die "the default i2i trigger item has no recall data"
+# Recall tables live in Elasticsearch; Redis only holds the user's click history.
+i2i_query="$(python3 -c 'import json, sys; print(json.dumps({"query": {"bool": {"filter": [
+    {"term": {"scene": "scene_0"}}, {"term": {"left_item": sys.argv[1]}}
+]}}}))' "${smoke_item}")"
+i2i_count="$(docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
+  -H 'Content-Type: application/json' \
+  'https://localhost:9200/openrec-recall-item-cf-i2i-active/_count' \
+  --data "${i2i_query}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["count"])')" \
+  || die "could not query the active Elasticsearch i2i recall index"
+[[ "${i2i_count}" =~ ^[1-9][0-9]*$ ]] \
+  || die "the default i2i trigger item has no recall data in the active Elasticsearch index"
 docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${smoke_item}\"" | grep -Eq '[0-9]+' \
   || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \

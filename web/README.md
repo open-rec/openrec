@@ -181,7 +181,7 @@ Measured on the sample dataset, starting from a cold `user_0` (no clicks):
 | no clicks | 0 | 0 | `item_6689 item_5609 item_5248 …` — all from the hot table |
 | after one click on `item_2` | 1 | 26 | `item_5887 item_3209 item_7151 item_5862 item_455 item_1218 …` |
 
-Those six are exactly the top of `item-cf-i2i:{item_2}:scene_0`, so the click propagated all the way from
+Those six match the item-CF candidates for `scene_0` / `item_2`, so the click propagated all the way from
 the sdk into the recall result.
 
 **Pick a well-connected item to see this clearly.** The effect is only visible when the clicked item
@@ -190,7 +190,10 @@ raises `trigger size`, but `item_cf_i2i size` stays 0 and the page changes only 
 Check first:
 
 ```shell
-redis-cli ZCARD 'item-cf-i2i:{item_2}:scene_0'
+curl -ksS -u elastic:openrec-es-password \
+  -H 'Content-Type: application/json' \
+  'https://localhost:9200/openrec-recall-item-cf-i2i-active/_count' \
+  --data '{"query":{"bool":{"filter":[{"term":{"scene":"scene_0"}},{"term":{"left_item":"item_2"}}]}}}'
 ```
 
 ## repeatability
