@@ -346,14 +346,21 @@ initialize candidate vectors separately before enabling online query embeddings.
 
 ### Scheduled title-vector recall
 
-`openrec_daily_recall` (02:00 UTC) now includes `query_title_emb`, alongside all other
-item-graph tables. `openrec_daily_user_recall` (02:30 UTC) covers all four user-graph tables.
+`openrec_daily_recall` (02:00 UTC) excludes `query_title_emb` by default and builds
+the CPU recall tables. `openrec_daily_user_recall` (02:30 UTC) covers all four user-graph tables.
 Title generation uses the cumulative item snapshot and the shared vLLM service; deploy
 with `EMBEDDING_ENABLED=true` and the model mount/GPU settings documented in
 [the vLLM component](https://github.com/open-rec/bigdata-platform/blob/master/vllm/README.md). The runner, rec-server and
-rec-console must use the same embedding model/dimensions. Default daily title publication
-requires that service; CPU-only deployments should omit `query_title_emb` from their
-published DAG algorithm list explicitly.
+rec-console must use the same embedding model/dimensions.
+
+Cluster and GitHub CI disable online query encoding and scheduled title generation by
+default because vLLM requires GPU resources and Qwen model weights, which are costly
+to provision on GitHub runners. BM25 `item_search` / `user_search` remains available.
+On a local GPU host, configure the vLLM model mount, provide matching title vectors,
+set `EMBEDDING_ENABLED=true`, and start cluster. To also refresh title vectors daily,
+add `query_title_emb` to `openrec_daily_recall` in rec-console and publish that config.
+Previously published configs are preserved; remove `query_title_emb` from those lists
+when migrating an existing installation to CPU-only operation.
 
 The title index is global: `query-title-emb-index`. rec-console manages its versioned
 staging indexes, activation and rollback (`algorithm=query-title-emb`). Scheduled releases

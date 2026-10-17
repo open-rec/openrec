@@ -58,8 +58,10 @@ class RecallContractTest(unittest.TestCase):
                 self.assertEqual(search['content']['textField'], 'text')
             channels = {node['content']['recallType']: node['content']['tableName']
                         for node in graph['nodes'] if node.get('content') and 'tableName' in node['content']}
-            self.assertEqual(set(channels), {dag['RECALL_TYPES'][algorithm]
-                for algorithm in dag['DEFAULT_CONFIG']['algorithms']})
+            self.assertEqual(set(channels), set(dag['RECALL_TYPES'].values()))
+            defaults = set(dag['DEFAULT_CONFIG']['algorithms'])
+            self.assertNotIn('query_title_emb', defaults)
+            self.assertEqual(defaults, set(dag['RECALL_TYPES']) - {'query_title_emb'})
             for algorithm in dag['DEFAULT_CONFIG']['algorithms']:
                 with self.subTest(target=target, algorithm=algorithm):
                     artifact = "item_title_emb" if algorithm == "query_title_emb" else algorithm

@@ -64,7 +64,9 @@ upstream task, diagnostics and the matching request ID in rec-server's `graph_tr
 
 ## Daily title vectors
 
-The default item pipeline includes `publish_query_title_emb`, invoking the runner's
+The default item pipeline excludes title embeddings so GitHub CI needs no GPU, vLLM,
+or Qwen weights. Explicitly add `query_title_emb` through rec-console on GPU deployments
+to create `publish_query_title_emb`, invoking the runner's
 `query_title_emb` algorithm. It encodes current item titles through vLLM and delegates
 release preparation/activation to rec-console for the global `query-title-emb-index` alias.
 Set `EMBEDDING_ENABLED=true` and matching model/endpoint/dimension settings when deploying

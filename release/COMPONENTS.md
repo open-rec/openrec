@@ -79,3 +79,6 @@ Bootstrap v19 makes title language vectors optional for CPU-only initialization.
 The companion rec-algorithm builder/checker preserves verified precomputed vectors
 and checksums them when present; standalone and cluster use the same builder.
 Online embedding still requires a matching title-vector table and inference service.
+
+Cluster online query encoding and daily title generation are opt-in. The companion
+rec-server profile, rec-console defaults, and Airflow template support CPU-only CI.

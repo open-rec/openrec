@@ -20,6 +20,8 @@ class EmbeddingContractTest(unittest.TestCase):
 
     def test_profiles_forward_optional_embedding_configuration(self):
         for mode in ('standalone', 'cluster'):
+            profile = (ROOT / f'rec-server/server/src/main/resources/application-{mode}.properties').read_text()
+            self.assertIn('embedding.enabled=${EMBEDDING_ENABLED:false}', profile)
             compose = (ROOT / f'rec-server/docker-compose.{mode}.yml').read_text()
             self.assertIn('EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-false}', compose)
             self.assertIn('http://vllm:8000/v1/embeddings', compose)

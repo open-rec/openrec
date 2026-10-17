@@ -15,7 +15,7 @@ REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
     "schedule": "0 2 * * *",
-    "algorithms": ["hot", "new", "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "text_search", "query_title_emb"],
+    "algorithms": ["hot", "new", "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "text_search"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
 }
