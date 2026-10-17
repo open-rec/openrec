@@ -24,6 +24,22 @@ def constants(path):
 
 
 class RecallContractTest(unittest.TestCase):
+    def test_airflow_publish_tasks_use_serving_graph_table_names(self):
+        for target, dag_name in [('item', 'openrec_daily_recall.py'),
+                                 ('user', 'openrec_daily_user_recall.py')]:
+            path = DAGS / dag_name
+            values = constants(path)
+            tree = ast.parse(path.read_text())
+            function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                            and node.name == 'publish_task_id')
+            exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), values)
+            graph = json.loads((WORKSPACE / f'rec-server/server/src/main/resources/{target}_graph.json').read_text())
+            tables = {node['content']['recallType']: node['content']['tableName']
+                      for node in graph['nodes'] if (node.get('content') or {}).get('tableName')}
+            for algorithm, channel in values['RECALL_TYPES'].items():
+                self.assertEqual(values['publish_task_id'](algorithm), 'publish-' + tables[channel])
+            self.assertEqual(values['publish_task_id']('text_search'), f'publish-{target}-search')
+
     def test_files_dags_publishers_and_graphs_agree(self):
         if not (WORKSPACE / 'rec-server').is_dir():
             self.skipTest('requires sibling source repositories')

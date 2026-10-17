@@ -214,7 +214,7 @@ if [[ -n "${OPENREC_GRAPH_NODE_TIMEOUT_MS:-}" ]]; then
   python3 "${WORKSPACE}/example/scripts/configure-functional-graph.py" \
     --node-timeout-ms "${OPENREC_GRAPH_NODE_TIMEOUT_MS}"
 fi
-python3 "${WORKSPACE}/example/scripts/wait-recommendation-ready.py" --user-id "${smoke_user}"
+python3 "${WORKSPACE}/example/scripts/wait-recommendation-ready.py" --user-id "${smoke_user}" --target item --target user
 note "rec-server recommendation is ready: http://127.0.0.1:13579"
 source "${WORKSPACE}/example/scripts/lib/standalone-recommendation.sh"
 

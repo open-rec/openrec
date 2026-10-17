@@ -42,3 +42,12 @@ class ReadinessClientTest(unittest.TestCase):
             request.side_effect = [{"state": "WARMING"}, {"state": "FAILED", "ready": False}]
             with self.assertRaisesRegex(RuntimeError, "warmup failed"):
                 MODULE.main()
+
+    def test_warms_both_routes_in_one_request(self):
+        with patch("sys.argv", ["wait", "--user-id", "u", "--target", "item", "--target", "user"]), \
+                patch.object(MODULE, "request") as request:
+            request.side_effect = [{"state": "WARMING"}, {"state": "READY", "ready": True}]
+            MODULE.main()
+            samples = request.call_args_list[0].args[2]
+            self.assertEqual([sample["targetType"] for sample in samples], ["item", "user"])
+            self.assertEqual([sample["params"]["query"] for sample in samples], ["item", "CN"])

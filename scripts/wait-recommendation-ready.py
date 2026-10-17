@@ -27,13 +27,17 @@ def main():
     parser.add_argument("--server", default="http://127.0.0.1:13579")
     parser.add_argument("--user-id", required=True)
     parser.add_argument("--scene", default="scene_0")
+    parser.add_argument("--target", action="append", choices=("item", "user"),
+                        help="Recommendation target to warm; repeat for both routes (default: item)")
     parser.add_argument("--timeout", type=float, default=300)
     args = parser.parse_args()
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     base = args.server.rstrip("/")
-    sample = {"userId": args.user_id, "scene": args.scene, "size": 12, "type": "click",
-              "targetType": "item", "params": {"ab": "default", "query": "item"}}
-    request(opener, base + "/internal/recommendation-warmup", [sample])
+    samples = [{"userId": args.user_id, "scene": args.scene, "size": 12, "type": "click",
+                "targetType": target,
+                "params": {"ab": "default", "query": "CN" if target == "user" else "item"}}
+               for target in dict.fromkeys(args.target or ["item"])]
+    request(opener, base + "/internal/recommendation-warmup", samples)
     deadline = time.monotonic() + args.timeout
     previous = None
     while time.monotonic() < deadline:

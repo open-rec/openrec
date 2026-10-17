@@ -50,6 +50,7 @@ public class InitStandalone {
     private static String testRecallNewData;
     private static String featureDataDir;
     private static String titleEmbeddingData;
+    private static String userRecallDataDir;
 
     private static final String ITEM_VECTOR_INDEX = "{\n" +
             "  \"mappings\": {\n" +
@@ -74,6 +75,8 @@ public class InitStandalone {
             "    \"left_item\": {\"type\": \"keyword\"},\n" +
     "    \"right_item\": {\"type\": \"keyword\"},\n" +
             "    \"user\": {\"type\": \"keyword\"},\n" +
+            "    \"left_user\": {\"type\": \"keyword\"},\n" +
+            "    \"right_user\": {\"type\": \"keyword\"},\n" +
             "    \"score\": {\"type\": \"double\"},\n" +
             "    \"publish_time\": {\"type\": \"long\"}\n" +
             "  }},\n" +
@@ -126,6 +129,7 @@ public class InitStandalone {
         testRecallNewData = recallDataDir + "/new.csv";
         itemSearchData = recallDataDir + "/text_search.csv";
         userSearchData = absolute + "/recall/user/text_search.csv";
+        userRecallDataDir = absolute + "/recall/user";
     }
 
     private static void initRedisItemData(RedisTemplate redisTemplate) {
@@ -473,6 +477,9 @@ public class InitStandalone {
                 if (kind.endsWith("i2i")) {
                     document.put("left_item", record.get("left_item"));
                     document.put("right_item", record.get("right_item"));
+                } else if (kind.endsWith("u2u")) {
+                    document.put("left_user", record.get("left_user"));
+                    document.put("right_user", record.get("right_user"));
                 } else if ("user-cf-u2i".equals(kind)) {
                     document.put("user", record.get("user"));
                     document.put("item", record.get("item"));
@@ -485,6 +492,8 @@ public class InitStandalone {
                 }
                 String id = kind.endsWith("i2i")
                         ? record.get("scene") + ":" + record.get("left_item") + ":" + record.get("right_item")
+                        : kind.endsWith("u2u")
+                        ? record.get("scene") + ":" + record.get("left_user") + ":" + record.get("right_user")
                         : "user-cf-u2i".equals(kind)
                         ? record.get("scene") + ":" + record.get("user") + ":" + record.get("item")
                         : record.get("scene") + ":" + record.get("item");
@@ -584,6 +593,9 @@ public class InitStandalone {
         initEsRecallData(esClient, "item-cf-i2i", testRecallI2iData);
         initEsRecallData(esClient, "content-i2i", testRecallContentI2iData);
         initEsRecallData(esClient, "user-cf-u2i", testRecallUserCfU2iData);
+        for (String kind : Arrays.asList("user-cf-u2u", "content-u2u", "user-als-u2u")) {
+            initEsRecallData(esClient, kind, userRecallDataDir + "/" + kind.replace('-', '_') + ".csv");
+        }
         initEsSearchData(esClient, "item", itemSearchData);
         initEsSearchData(esClient, "user", userSearchData);
         initEsEmbeddingData(esClient);

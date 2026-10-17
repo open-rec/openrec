@@ -31,6 +31,10 @@ except (OSError, ValueError):
     CONFIG = DEFAULT_CONFIG
 
 
+def publish_task_id(algorithm):
+    return "publish-" + SERVING_TABLES[algorithm]
+
+
 def _request(url, method="GET", body=None, timeout=30):
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, method=method,
@@ -92,7 +96,7 @@ def openrec_daily_user_recall():
     business_date = "{{ dag_run.conf['business_date'] if dag_run and dag_run.conf.get('business_date') else (data_interval_start | ds) }}"
     revision = "{{ dag_run.conf.get('revision', '%s') if dag_run else '%s' }}" % (
         CONFIG["default_revision"], CONFIG["default_revision"])
-    published = [publish.override(task_id="publish_%s" % algorithm)(
+    published = [publish.override(task_id=publish_task_id(algorithm))(
         algorithm, business_date, revision) for algorithm in CONFIG["algorithms"]]
     verified = verify_aliases_and_online_recall(business_date, revision, CONFIG["algorithms"])
     for upstream, downstream in zip(published, published[1:]): upstream >> downstream

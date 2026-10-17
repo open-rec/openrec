@@ -1,6 +1,8 @@
 """Test the actual DAG validator without requiring an Airflow installation."""
 import ast
 import csv
+import copy
+import os
 from pathlib import Path
 import unittest
 
@@ -17,6 +19,22 @@ exec(compile(ast.Module(body=selected, type_ignores=[]), str(SOURCE), "exec"), n
 
 
 class ClusterRecallValidationTest(unittest.TestCase):
+    def test_warmup_covers_item_and_user_routes(self):
+        function = copy.deepcopy(next(node for node in ast.walk(tree)
+                                      if isinstance(node, ast.FunctionDef)
+                                      and node.name == "recommendation_warmup"))
+        function.decorator_list = []
+        calls = []
+
+        def request(url, **kwargs):
+            calls.append(kwargs)
+            return {"ready": True}
+
+        scope = {**namespace, "os": os, "_request": request}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(SOURCE), "exec"), scope)
+        scope["recommendation_warmup"]()
+        self.assertEqual({sample["targetType"] for sample in calls[0]["body"]}, {"item", "user"})
+
     def payload(self):
         return {"results": [{"id": "selected", "recallFrom": "hot"}],
                 "recallDiagnostics": [{"channel": channel, "status": "SUCCESS", "candidateCount": 5}

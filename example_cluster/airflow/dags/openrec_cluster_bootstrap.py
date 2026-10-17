@@ -214,7 +214,9 @@ def openrec_cluster_bootstrap():
                      os.environ.get("SERVING_GRAPH_TOKEN", "openrec-serving-graph-token-change-me")},
             body=[{"userId": "user_0", "itemIds": SMOKE_TRIGGER_ITEMS,
                    "scene": "scene_0", "size": 12, "type": "click",
-                   "targetType": "item", "params": {"ab": "default", "query": "item"}}],
+                   "targetType": "item", "params": {"ab": "default", "query": "item"}},
+                  {"userId": "user_0", "scene": "scene_0", "size": 12,
+                   "targetType": "user", "params": {"ab": "default", "query": "CN"}}],
         )
         for _ in range(150):
             try:

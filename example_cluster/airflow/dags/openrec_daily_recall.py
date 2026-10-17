@@ -23,6 +23,7 @@ SERVING_TABLES = {
     "query_title_emb": "query-title-emb",
     "hot": "hot", "new": "new", "item_cf_i2i": "item-cf-i2i",
     "content_i2i": "content-i2i", "user_cf_u2i": "user-cf-u2i", "text_search": "item-search",
+    "item_seq_emb": "item-seq-emb",
 }
 RECALL_TYPES = {
     "query_title_emb": "query_title_emb",
@@ -35,6 +36,10 @@ try:
     CONFIG = {**DEFAULT_CONFIG, **json.loads(CONFIG_PATH.read_text())}
 except (OSError, ValueError):
     CONFIG = DEFAULT_CONFIG
+
+
+def publish_task_id(algorithm):
+    return "publish-" + SERVING_TABLES[algorithm]
 
 
 def _request(url, method="GET", body=None, headers=None, timeout=30, context=None):
@@ -136,7 +141,7 @@ def openrec_daily_recall():
     business_date = "{{ dag_run.conf['business_date'] if dag_run and dag_run.conf.get('business_date') else (data_interval_start | ds) }}"
     revision = "{{ dag_run.conf.get('revision', '%s') if dag_run else '%s' }}" % (
         CONFIG["default_revision"], CONFIG["default_revision"])
-    published = [publish.override(task_id="publish_%s" % algorithm)(
+    published = [publish.override(task_id=publish_task_id(algorithm))(
         algorithm, business_date, revision) for algorithm in CONFIG["algorithms"]]
     verified = verify_aliases_and_online_recall(
         business_date, revision, CONFIG["algorithms"])
