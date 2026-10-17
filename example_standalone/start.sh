@@ -136,6 +136,22 @@ note "Building Java SDK, data loader, and Web Demo"
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/init/pom.xml" clean package -DskipTests
 "${MVN}" "${MVN_ARGS[@]}" -f "${BUILD_DIR}/example/web/pom.xml" clean package -DskipTests
 
+if [[ "${EMBEDDING_ENABLED:-false}" == "true" ]]; then
+  note "Starting optional vLLM embedding infrastructure"
+  "${WORKSPACE}/bigdata-platform/platform.sh" build vllm
+  "${WORKSPACE}/bigdata-platform/platform.sh" up vllm
+  embedding_ready=false
+  for attempt in {1..60}; do
+    if "${WORKSPACE}/bigdata-platform/platform.sh" smoke vllm; then
+      embedding_ready=true
+      break
+    fi
+    sleep 5
+  done
+  [[ "${embedding_ready}" == "true" ]] || die "vLLM embedding service did not become ready"
+  python3 "${WORKSPACE}/example/scripts/verify_embedding.py"
+fi
+
 note "Loading standalone sample data"
 (
   cd "${WORKSPACE}/example"
@@ -167,9 +183,9 @@ i2i_count="$(docker exec redis redis-cli ZCARD "item-cf-i2i:{${smoke_item}}:scen
 docker exec redis redis-cli ZSCORE "event:{${smoke_user}}:scene_0:click" "\"${smoke_item}\"" | grep -Eq '[0-9]+' \
   || die "the default user has no i2i-covered click event"
 docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
-  'https://localhost:9200/_cat/indices/scene_0-item_seq_emb-index?h=index' >/dev/null \
+  'https://localhost:9200/_cat/indices/scene_0-item-seq-emb-index?h=index' >/dev/null \
   || die "sample vectors were not loaded into Elasticsearch"
-for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i sparse; do
+for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i item-search user-search; do
   docker exec elasticsearch curl -fksS -u elastic:openrec-es-password \
     "https://localhost:9200/_alias/openrec-recall-${recall_kind}-active" >/dev/null \
     || die "${recall_kind} recall alias was not loaded into Elasticsearch"

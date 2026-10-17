@@ -82,7 +82,7 @@ python3 scripts/verify_rank_feature_contract.py
 ```
 
 For HTTP acceptance, point the following command at a standalone candidate using disposable Redis
-and the Redis recall store. It writes unique test entities, checks recommendation output, then
+and Elasticsearch recall indexes. It writes unique test entities, checks recommendation output, then
 deletes those entities and event members:
 
 ```bash

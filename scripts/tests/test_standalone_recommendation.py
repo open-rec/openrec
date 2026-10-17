@@ -8,7 +8,7 @@ import unittest
 
 
 HELPER = Path(__file__).resolve().parents[1] / "lib" / "standalone-recommendation.sh"
-CHANNELS = ["item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse", "hot"]
+CHANNELS = ["item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "item_search", "hot"]
 
 
 class StandaloneRecommendationTest(unittest.TestCase):
@@ -18,6 +18,13 @@ class StandaloneRecommendationTest(unittest.TestCase):
             curl = root / "curl"
             curl.write_text('''#!/usr/bin/env python3
 import json, os, pathlib, sys
+if any(arg.endswith("/api/recommend/user") for arg in sys.argv):
+    response = json.loads(os.environ["RESPONSE"])
+    for node in response["data"]["recallDiagnostics"]:
+        if node["channel"] == "item_search":
+            node["channel"] = "user_search"
+    print(json.dumps(response))
+    sys.exit(0)
 p = pathlib.Path(os.environ["COUNT_FILE"])
 n = int(p.read_text()) + 1 if p.exists() else 1
 p.write_text(str(n))

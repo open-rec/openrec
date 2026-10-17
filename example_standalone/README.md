@@ -79,7 +79,7 @@ components, imports the bundled sample entities, behavior, and recall datasets, 
 the rec-server and standalone rec-console containers, and sends a real recommendation request
 before starting the Web Demo.
 The smoke request explicitly routes to the default experiment and verifies `item_cf_i2i`,
-`content_i2i`, `user_cf_u2i`, `item_seq_emb`, `sparse`, and hot
+`content_i2i`, `user_cf_u2i`, `item_seq_emb`, `item_search`, and hot
 results from its `WeightedChannelOperationRule` while bypassing Rank and Kafka. It intentionally
 does not require `new`, whose online item supply belongs to the application.
 Open the URL printed at completion: `http://127.0.0.1:12345`. The script exits with a clear error if
@@ -167,7 +167,7 @@ cd ..
 
 The start script first validates `model/default.manifest.json` against the raw CSV hashes and rebuilds
 stale deployable artifacts. The loader imports users, items, events and feature snapshots into
-Redis. It loads hot, new, item-CF I2I, content I2I, UserCF U2I, and sparse BM25 documents into
+Redis. It loads hot, new, item-CF I2I, content I2I, UserCF U2I, and item/user BM25 documents into
 versioned Elasticsearch indexes behind `openrec-recall-{tableName}-active`, and `item_seq_emb` vectors into the per-scene vector
 index. Development-only Redis copies of those recall tables are also loaded for RecallStore parity checks,
 but the standalone rec-server uses `ElasticsearchRecallStore` by default. Direct loader invocation
@@ -264,3 +264,12 @@ cd bigdata-platform
   `6379`, and that the Elasticsearch password still matches `bigdata-platform/.env`.
 - `./platform.sh down -v` also deletes stored data. Use it only when a complete reset is intended,
   then rerun the loader.
+
+
+Optional semantic recall: configure the local model mount and GPU as described in
+[the vLLM infrastructure guide](https://github.com/open-rec/bigdata-platform/blob/master/vllm/README.md), then export
+`EMBEDDING_ENABLED=true` before starting this profile. Startup verifies online/offline
+embedding compatibility and initializes `item_title_emb.csv` into the Qwen aliases.
+Default startup does not require vLLM or GPU. Graph overrides from previous deployments
+need the new query timeout/configuration. Direct component Compose deployments must
+initialize candidate vectors separately before enabling online query embeddings.

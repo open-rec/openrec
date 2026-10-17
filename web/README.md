@@ -94,7 +94,7 @@ ranking; starting rank-engine alone does not enable it. Use the complete
 
 Combine de-duplicates channels in configured `recallTypes` order, so the first channel becomes
 an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
-operation rule allocates item-CF, content, UserCF, sequence/query embedding, sparse, hot and new candidates using the
+operation rule allocates item-CF, content, UserCF, sequence/query embedding, item_search, hot and new candidates using the
 ratios in `item_graph.json` and orders the selected items by score. If a channel is short, its quota is
 filled by the highest-scoring
 unused candidates, so the observed mix can differ from the target rather than returning fewer items.

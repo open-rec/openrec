@@ -32,7 +32,7 @@ See [the exact component commits](release/COMPONENTS.md) and [distribution manif
 
 Use companion rec-algorithm builder/checker changes and rank-engine Compose paths together:
 `rank/{item,user}/{lr,fm,lightgbm}/` and `recall/{item,user}/`. The initializer reads item LR
-snapshots and item recall tables. Additional user/query/sparse CSVs are available as offline
+snapshots and item recall tables. Additional user/query CSVs are available as offline
 artifacts; their presence does not activate new serving channels. The component refs above remain
 published release refs; this workspace change must be pinned to new companion commits before a
 new distribution release. To roll back, restore the v11 bundle and matching consumers together.
@@ -40,7 +40,7 @@ new distribution release. To roll back, restore the v11 bundle and matching cons
 ## Recall naming migration (bootstrap v13)
 
 Apply rec-algorithm, rec-server, rec-console and example companion changes together. The item
-vector table is now `item_seq_emb`, with `{scene}-item_seq_emb-index` aliases and matching
+vector table is now `item-seq-emb`, with `{scene}-item-seq-emb-index` aliases and matching
 versioned indexes. User algorithm/task/CSV names are `user_als_u2u`; daily Hive output is
 `openrec.recall_user_als_u2u`. The existing `user-als-u2u` serving table and `user_als_u2u`
 response channel remain the mapping for user recall. Local bootstrap data now uses implicit ALS.
@@ -59,7 +59,8 @@ the item file remains `query_embedding.csv`. Both preserve their vector values.
 Existing rank, item-sequence and user-ALS artifacts and algorithms are unchanged.
 
 The Qwen experiment channel is `query_qwen_emb`, including its graph references and weights.
-It reads the separate `{scene}-query_qwen_emb-index`; bootstrap does not populate this index.
+It reads the separate `query-title-emb-index`; optional embedding-enabled bootstrap now
+loads Qwen3-Embedding-0.6B title vectors into this index. Historical experiment vectors remain separate.
 Qwen query vectors must use the same model and preprocessing as its candidate index.
 `params.queryEmbedding` and the generic vector API remain compatible. Existing graph releases
 must migrate the query channel, weights and table together. Historical experiment results and
@@ -77,8 +78,23 @@ Existing live indexes and runtime configurations are not automatically modified 
 
 Bootstrap v17 renames item/user `sparse.csv` to `text_search.csv`, preserving their
 contents. The removed Qwen-only manifest is no longer required or emitted; the bundle
-manifest continues to checksum all artifacts. Serving algorithm/channel `sparse` is unchanged.
+manifest continues to checksum all artifacts. Serving now uses channels `item_search` / `user_search`, with `item-search` and `user-search` tables.
 
 Bootstrap v18 removes optional `item_content_emb.csv` from the default bundle and retains
 `item_title_emb.csv`. The generator supports `--include-content` for explicit offline generation.
 The default manifest covers 40 artifacts (27 rank files and 13 recall tables).
+
+The rec-server full-text recall implementation now uses `SearchNode` / `SearchConfig`
+(type `item.search`). The graphs use `item_search` / `user_search`, with `item-search` / `user-search` serving tables.
+Persisted graph overrides must update the old sparse Java class/config names and type;
+loading only the old node class against the new server is not supported.
+
+
+Search table migration requires companion rec-server, rec-algorithm, and rec-console changes
+in this workspace before rebuilding either distribution profile. Republish saved daily DAG
+configurations to replace `sparse` with `text_search`; the user DAG includes `text_search`
+with `target_type=user`. Reinitialize both model text tables before activating graph overrides.
+Persisted graph overrides must use `item.search` / `user.search`, `SearchConfig`, channels
+`item_search` / `user_search`, and tables `item-search` / `user-search`. Old `openrec-recall-sparse-active`
+indexes are not reused. Pinned release refs still describe the previous released distribution
+until these companion changes are committed and a new release is pinned.

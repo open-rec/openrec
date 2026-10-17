@@ -19,7 +19,7 @@ tables or load the full fixture.
 |---|---|---|
 | `openrec_cluster_bootstrap` | Manual | Check platform/services, warm and verify recommendations, then verify online ingestion |
 | `openrec_daily_recall` | Published configuration | Run the ordered recall pipeline, write staging indexes, and request validated activation through rec-console |
-| `openrec_daily_user_recall` | Published configuration | Build and atomically activate UserCF, content, and embedding U2U recall tables |
+| `openrec_daily_user_recall` | Published configuration | Build and activate UserCF, content, ALS U2U and user-search tables |
 | `openrec_recall_rollback` | Manual | Ask rec-console to restore a retained recall-index version |
 | `openrec_rank_model` | Manual | Prepare training data, train/evaluate LR, FM, or LightGBM, and retain an immutable release for manual deployment |
 | `openrec_rank_model_rollback` | Manual | Reactivate a retained rank-model release through rec-console and rank-engine |
@@ -53,11 +53,25 @@ and failure-log locations are documented in the parent [cluster guide](../README
 `recommendation_warmup` authenticates with `SERVING_GRAPH_TOKEN`, which must match rec-server.
 It requests an independent warmup budget followed by consecutive normal-budget verification.
 `recommendation_smoke` uses `debug: true` and requires successful, nonempty `recallDiagnostics`
-for the fixture-backed item-CF, content, UserCF, sequence embedding, sparse and hot channels.
-New-item supply is time-dependent and query embedding requires a supplied vector, so these are
-not mandatory for the default sample. A candidate shared by multiple channels counts toward each;
+for the fixture-backed item-CF, content, UserCF, sequence embedding, item_search and hot channels.
+New-item supply is time-dependent and query-title recall requires the optional vLLM service
+or a supplied vector, so these are not mandatory for the default bootstrap sample. A candidate shared by multiple channels counts toward each;
 the final twelve results need not display every channel. They must remain nonempty and ranked.
 
 `ingestion_smoke` runs only after recommendation smoke succeeds. Its `upstream_failed` state
 means it did not execute, not that Kafka ingestion independently failed. Inspect the failed
 upstream task, diagnostics and the matching request ID in rec-server's `graph_trace` logs.
+
+## Daily title vectors
+
+The default item pipeline includes `publish_query_title_emb`, invoking the runner's
+`query_title_emb` algorithm. It encodes current item titles through vLLM and delegates
+release preparation/activation to rec-console for the global `query-title-emb-index` alias.
+Set `EMBEDDING_ENABLED=true` and matching model/endpoint/dimension settings when deploying
+this full pipeline. Without vLLM, explicitly remove this algorithm from the published
+DAG config. Existing published lists are preserved and require a new configuration version
+to add the title task. Daily verification checks nonempty successful recall diagnostics,
+including `query_title_emb` when selected; final ranking need not select every channel.
+
+Rollback uses the existing `openrec_recall_rollback` DAG with
+`{"algorithm":"query-title-emb"}` and optionally a retained `target_index`.

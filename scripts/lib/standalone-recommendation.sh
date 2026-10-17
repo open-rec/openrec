@@ -44,7 +44,7 @@ if not results:
 diagnostics = (response.get("data") or {}).get("recallDiagnostics") or []
 channels = {node.get("channel") for node in diagnostics
             if node.get("status") == "SUCCESS" and node.get("candidateCount", 0) > 0}
-required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse", "hot"}
+required = {"item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "item_search", "hot"}
 missing = required - channels
 if missing:
     raise SystemExit("missing channels: %s; recall diagnostics: %s" % (",".join(sorted(missing)), diagnostics))
@@ -69,4 +69,17 @@ if docker logs rec-server 2>&1 \
     | grep -Eq 'rank score failed|KafkaService|KafkaTemplate|KafkaAdmin'; then
   die "standalone log contains an unexpected Rank or Kafka service call"
 fi
-note "Recall-node smoke passed: item-CF, content, UserCF, embedding, sparse, and hot returned candidates; new-item supply is time-dependent; Rank and Kafka are bypassed"
+note "Recall-node smoke passed: item-CF, content, UserCF, embedding, item_search, and hot returned candidates; new-item supply is time-dependent; Rank and Kafka are bypassed"
+
+user_search_response="$(curl --fail --silent --show-error --noproxy '*' --max-time 30 \
+  -H 'Content-Type: application/json' http://127.0.0.1:13579/api/recommend/user \
+  --data '{"requestId":"standalone-user-search","body":{"scene":"scene_0","size":12,"userId":"user_0","debug":true,"params":{"query":"CN"}}}')"
+python3 -c '
+import json, sys
+response = json.load(sys.stdin)
+diagnostics = (response.get("data") or {}).get("recallDiagnostics") or []
+if not any(node.get("channel") == "user_search" and node.get("status") == "SUCCESS"
+           and node.get("candidateCount", 0) > 0 for node in diagnostics):
+    raise SystemExit("user text search failed: %s" % response)
+' <<<"${user_search_response}"
+note "User user_search smoke passed"

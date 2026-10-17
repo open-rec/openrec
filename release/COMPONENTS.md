@@ -32,8 +32,45 @@ rec-server user graph must use algorithm/channel `user_als_u2u` and serving tabl
 
 Bootstrap v17 renames item/user `sparse.csv` to `text_search.csv`, preserving their
 contents. The removed Qwen-only manifest is no longer required or emitted; the bundle
-manifest continues to checksum all artifacts. Serving algorithm/channel `sparse` is unchanged.
+manifest continues to checksum all artifacts. Serving now uses channels `item_search` / `user_search`, with `item-search` and `user-search` tables.
 
 Bootstrap v18 removes optional `item_content_emb.csv` from the default bundle and retains
 `item_title_emb.csv`. The generator supports `--include-content` for explicit offline generation.
 The default manifest covers 40 artifacts (27 rank files and 13 recall tables).
+
+
+Search table migration requires companion rec-server, rec-algorithm, and rec-console changes
+in this workspace before rebuilding either distribution profile. Republish saved daily DAG
+configurations to replace `sparse` with `text_search`; the user DAG includes `text_search`
+with `target_type=user`. Reinitialize both model text tables before activating graph overrides.
+Persisted graph overrides must use `item.search` / `user.search`, `SearchConfig`, channels
+`item_search` / `user_search`, and tables `item-search` / `user-search`. Old `openrec-recall-sparse-active`
+indexes are not reused. The current manifest pins the companion changes together.
+
+Graph serving table names use hyphens (`item-seq-emb`, `query-title-emb`); recall channels
+and offline algorithm IDs keep underscores. Reinitialize sequence vector indexes or rerun
+the daily sequence publication for `{scene}-item-seq-emb-index`. Existing external Qwen
+indexes must be exposed under `query-title-emb-index` before enabling that channel.
+
+
+Optional embedding integration requires the new bigdata-platform `vllm` image/profile,
+rec-server embedding HTTP client/Compose configuration, and example compatibility gate
+and language-vector initialization in this workspace. The historical release tags above remain unchanged; `openrec.json` pins the current compatible commits. Default profiles retain their prior
+infrastructure dependencies; optional inference uses `/v1/embeddings` and defaults to
+Qwen3-Embedding-0.6B, 1024D. A release must pin all companion commits together.
+
+Trigger contract: both serving graphs now export only `requestTrigger`, with immutable
+`triggerItems` (ID/score), `triggerUsers` (user click ID/score), `triggerSelf`, and `triggerQuery`. Deploy rec-server trigger,
+recall, and combine implementations together; custom nodes importing the old standalone
+`triggerItems`/`triggerUsers` ports must migrate to the unified object.
+
+Scheduled title-vector releases require the companion rec-algorithm title job/runner,
+rec-console `query-title-emb` lifecycle and DAG/UI support, and updated item daily DAG.
+They serve `query-title-emb-index`, also used by the updated bootstrap initializer.
+The title job requires the vLLM component and matching embedding env settings. Published
+DAG configurations are versioned separately and must explicitly include `query_title_emb`.
+Historical release tags above remain unchanged; current component refs are recorded in `openrec.json`.
+
+Recall storage is now Elasticsearch-only. Deploy rec-server with the companion example
+initializer and rec-algorithm publisher cleanup; remove obsolete `RECALL_STORE` /
+`recall.store` overrides from deployment settings. Redis remains required for online state.

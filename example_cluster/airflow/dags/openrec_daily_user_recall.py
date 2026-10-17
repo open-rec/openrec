@@ -12,17 +12,17 @@ REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
     "schedule": "30 2 * * *",
-    "algorithms": ["user_cf_u2u", "content_u2u", "user_als_u2u"],
+    "algorithms": ["user_cf_u2u", "content_u2u", "user_als_u2u", "text_search"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
 }
 SERVING_TABLES = {
     "user_cf_u2u": "user-cf-u2u", "content_u2u": "content-u2u",
-    "user_als_u2u": "user-als-u2u",
+    "user_als_u2u": "user-als-u2u", "text_search": "user-search",
 }
 RECALL_TYPES = {
     "user_cf_u2u": "user_cf_u2u", "content_u2u": "content_u2u",
-    "user_als_u2u": "user_als_u2u",
+    "user_als_u2u": "user_als_u2u", "text_search": "user_search",
 }
 CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_user_recall.json")
 try:
@@ -58,8 +58,8 @@ def openrec_daily_user_recall():
           retry_delay=timedelta(minutes=CONFIG["retry_delay_minutes"]))
     def publish(algorithm, business_date, revision):
         response = _request(RUNNER + "/jobs/recall", method="POST", body={
-            "algorithm": algorithm, "date": business_date, "revision": revision,
-            "output_table": "openrec.recall_%s" % algorithm,
+            "algorithm": algorithm, "date": business_date, "revision": revision, "target_type": "user",
+            "output_table": "openrec.recall_%s" % ("user_text_search" if algorithm == "text_search" else algorithm),
             "max_index_versions": CONFIG["max_index_versions"],
         }, timeout=7500)
         if response.get("status") != "success":
@@ -79,12 +79,11 @@ def openrec_daily_user_recall():
         response = _request(REC_SERVER + "/api/recommend/user", method="POST", body={
             "requestId": "daily-user-recall-smoke", "body": {
                 "scene": "scene_0", "size": 50, "userId": "user_0",
-                "deviceId": "daily-user-recall-smoke", "debug": False,
+                "deviceId": "daily-user-recall-smoke", "params": {"query": "CN"}, "debug": True,
             }})
-        results = (response.get("data") or {}).get("results") or []
-        channels = {result.get("recallFrom") for result in results}
-        for result in results:
-            channels.update((result.get("recallScores") or {}).keys())
+        diagnostics = (response.get("data") or {}).get("recallDiagnostics") or []
+        channels = {entry.get("channel") for entry in diagnostics
+                    if entry.get("status") == "SUCCESS" and entry.get("candidateCount", 0) > 0}
         missing = {RECALL_TYPES[algorithm] for algorithm in algorithms} - channels
         if missing:
             raise RuntimeError("online user recall misses channels %s: %s" %

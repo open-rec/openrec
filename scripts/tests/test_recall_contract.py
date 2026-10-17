@@ -33,32 +33,49 @@ class RecallContractTest(unittest.TestCase):
                        and node.name == 'publish_embedding')
         defaults = dict(zip((arg.arg for arg in publish.args.args[-len(publish.args.defaults):]),
                             map(ast.literal_eval, publish.args.defaults)))
-        self.assertEqual(defaults['index_suffix'], 'item_seq_emb-index')
+        self.assertEqual(defaults['index_suffix'], 'item-seq-emb-index')
         initializer = (WORKSPACE / 'example/init/src/main/java/com/openrec/example/InitStandalone.java').read_text()
-        self.assertIn('"%s-item_seq_emb-index"', initializer)
+        self.assertIn('"%s-item-seq-emb-index"', initializer)
 
         for target, dag_name in (('item', 'openrec_daily_recall.py'),
                                  ('user', 'openrec_daily_user_recall.py')):
             dag = constants(DAGS / dag_name)
             graph = json.loads((WORKSPACE / f'rec-server/server/src/main/resources/{target}_graph.json').read_text())
+            for node in graph['nodes']:
+                content = node.get('content') or {}
+                if 'tableName' in content:
+                    self.assertRegex(content['tableName'], r'^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
+                if 'recallType' in content:
+                    self.assertRegex(content['recallType'], r'^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$')
+            if target in ('item', 'user'):
+                search = next(node for node in graph['nodes'] if node['name'] == f'{target}_search')
+                self.assertEqual(search['clazz'], f'com.openrec.graph.node.{target}.SearchNode')
+                self.assertEqual(search['configClazz'], 'com.openrec.graph.config.SearchConfig')
+                self.assertEqual(search['content']['recallType'], f'{target}_search')
+                self.assertEqual(search['content']['queryParam'], 'query')
+                self.assertEqual(search['content']['textField'], 'text')
             channels = {node['content']['recallType']: node['content']['tableName']
                         for node in graph['nodes'] if node.get('content') and 'tableName' in node['content']}
+            self.assertEqual(set(channels), {dag['RECALL_TYPES'][algorithm]
+                for algorithm in dag['DEFAULT_CONFIG']['algorithms']})
             for algorithm in dag['DEFAULT_CONFIG']['algorithms']:
                 with self.subTest(target=target, algorithm=algorithm):
-                    artifact = 'text_search' if algorithm == 'sparse' else algorithm
+                    artifact = "item_title_emb" if algorithm == "query_title_emb" else algorithm
                     path = WORKSPACE / f'model/recall/{target}/{artifact}.csv'
                     self.assertTrue(path.is_file(), path)
                     channel = dag['RECALL_TYPES'][algorithm]
                     if algorithm == 'item_seq_emb':
-                        self.assertEqual(channels[channel], 'item_seq_emb')
-                        self.assertEqual(channels['query_qwen_emb'], 'query_qwen_emb')
-                        self.assertNotEqual(channels['query_qwen_emb'], channels[channel])
+                        self.assertEqual(channels[channel], 'item-seq-emb')
+                        self.assertEqual(channels['query_title_emb'], 'query-title-emb')
+                        self.assertNotEqual(channels['query_title_emb'], channels[channel])
                     else:
-                        self.assertEqual(dag['SERVING_TABLES'][algorithm], publisher[algorithm])
-                        self.assertEqual(channels[channel], publisher[algorithm])
+                        table = f'{target}-search' if algorithm == 'text_search' else publisher[algorithm]
+                        self.assertEqual(dag['SERVING_TABLES'][algorithm], table)
+                        self.assertEqual(channels[channel], table)
                     if target == 'user':
                         with path.open() as stream:
                             self.assertEqual(next(csv.reader(stream)),
+                                             ['scene', 'user', 'text'] if algorithm == 'text_search' else
                                              ['scene', 'left_user', 'right_user', 'score'])
 
     def test_user_dag_validation_translates_algorithm_to_channel(self):
@@ -72,7 +89,7 @@ class RecallContractTest(unittest.TestCase):
             if '/api/recall/releases/' in url:
                 table = url.rsplit('/', 1)[-1]
                 return {'active_indexes': [f'openrec-recall-{table}-20261017-r001']}
-            return {'data': {'results': [{'recallFrom': channel}
+            return {'data': {'recallDiagnostics': [{'channel': channel, 'status': 'SUCCESS', 'candidateCount': 5}
                                          for channel in values['RECALL_TYPES'].values()]}}
         values['_request'] = request
         exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), values)

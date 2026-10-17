@@ -55,8 +55,8 @@ java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
 ```
 
 Import time depends on storage and host load. The loader writes entities, events, feature snapshots,
-Redis recall tables, five Elasticsearch table-recall families, per-scene vector indexes, and the
-sparse index. Verify the required aliases and sample keys after loading instead of relying on an
+five Elasticsearch item table-recall families, per-scene vector indexes, and the
+item/user search indexes. Verify the required aliases and sample keys after loading instead of relying on an
 old fixed index/key count or duration estimate.
 
 Redis is loaded before Elasticsearch. Thrown import errors abort startup with a nonzero exit code;
@@ -97,20 +97,22 @@ loader.
 | `event.csv` | `event:{userId}:{scene}:{type}` | sorted set, score = event time |
 | `rank/item/lr/user_feature.csv` | `feature:user:{userId}` | JSON feature snapshot |
 | `rank/item/lr/item_feature.csv` | `feature:item:{itemId}` | JSON feature snapshot |
-| `recall/item/item_cf_i2i.csv` | `item-cf-i2i:{leftItem}:{scene}` | sorted set |
-| `recall/item/content_i2i.csv` | `content-i2i:{leftItem}:{scene}` | sorted set |
-| `recall/item/user_cf_u2i.csv` | `user-cf-u2i:{userId}:{scene}` | sorted set |
-| `recall/item/hot.csv` | `hot:{scene}` | sorted set |
-| `recall/item/new.csv` | `new:{scene}` | sorted set, score = normalized score × load-time Unix timestamp |
-| `recall/item/item_seq_emb.csv` | `{scene}-item_seq_emb-index` | Elasticsearch, `dense_vector` (10 dims) |
+| `recall/item/item_cf_i2i.csv` | `openrec-recall-item-cf-i2i-active` | Elasticsearch alias |
+| `recall/item/content_i2i.csv` | `openrec-recall-content-i2i-active` | Elasticsearch alias |
+| `recall/item/user_cf_u2i.csv` | `openrec-recall-user-cf-u2i-active` | Elasticsearch alias |
+| `recall/item/hot.csv` | `openrec-recall-hot-active` | Elasticsearch alias |
+| `recall/item/new.csv` | `openrec-recall-new-active` | Elasticsearch alias |
+| `recall/item/item_seq_emb.csv` | `{scene}-item-seq-emb-index` | Elasticsearch, `dense_vector` (10 dims) |
 
-The same recall CSVs are also loaded into versioned Elasticsearch indexes behind their
+Recall CSVs are loaded only into versioned Elasticsearch indexes behind their
 `openrec-recall-{tableName}-active` aliases. The vector indexes are **dropped and recreated** on
 every run; Redis keys are overwritten in place, so
 stale keys from a previous dataset survive. Flush Redis if you switch datasets.
 
-The initializer also projects `title`, `category`, and `tags` from `item.csv` into the BM25-backed
-`openrec-recall-sparse-active` index used by request-time text recall.
+The shared standalone/cluster initializer reads `model/recall/item/text_search.csv`
+(`scene,item,text`) and `model/recall/user/text_search.csv` (`scene,user,text`). It loads BM25
+indexes, verifies document counts, then atomically switches `openrec-recall-item-search-active`
+and `openrec-recall-user-search-active`, respectively. Requests use `params.query`.
 
 `new.csv` supplies a normalized freshness score in `[0, 1]`. The loader projects it onto the Unix
 time domain expected by `NewNode` by multiplying every score by one timestamp captured at the start
@@ -136,3 +138,13 @@ curl -k -u elastic:openrec-es-password 'https://localhost:9200/_cat/indices/*vec
 - **It logs almost nothing on success.** There is no `log4j2.xml`, so Log4j2 defaults to root level ERROR and the per-table "finished" messages are discarded. Verify by querying Redis/ES, not by reading the output.
 - Elasticsearch 8 requires `https` and credentials; self-signed certificates are trusted deliberately (`EsUtil` uses an unsafe trust manager) since this is a local bootstrap tool.
 - The loader writes row by row without pipelining. Fine for the sample data; expect it to be slow on the full Douban `item_cf_i2i` table (~1M rows).
+
+
+When `EMBEDDING_ENABLED=true`, the initializer also reads `recall/item/item_title_emb.csv`,
+validates finite normalized vectors (`EMBEDDING_DIMENSIONS`, default 1024), stages one
+global cosine index, verifies unique item counts, and switches the
+`query-title-emb-index` alias atomically. Scene is ignored; repeated item IDs are
+deduplicated, and conflicting vectors for the same ID reject activation. The source CSV
+is streamed in batches. Existing active aliases remain
+available until validation succeeds; previous indexes remain available for rollback.
+The example startup performs the inference compatibility check before this import.

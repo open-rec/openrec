@@ -179,9 +179,10 @@ The same DAG directory defines `openrec_daily_recall` for `02:00 UTC`,
 `openrec_daily_user_recall` for `02:30 UTC`, and the manual `openrec_recall_rollback` DAG. New DAGs
 are paused by default, so enable the required daily DAGs in Airflow when publication should begin.
 Bootstrap does not run them: the item DAG submits hot/new/`item_cf_i2i`/`content_i2i`/
-`user_cf_u2i`/`item_seq_emb`/`sparse`, while the user DAG submits `user_cf_u2u`/`content_u2u` and the
+`user_cf_u2i`/`item_seq_emb`/`text_search`, while the user DAG submits `user_cf_u2u`/`content_u2u` and the
 internally named `user_als_u2u` ALS job, which publishes the `user-als-u2u` serving table consumed
-as `user_als_u2u`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
+as `user_als_u2u`, plus `text_search` with `target_type=user` publishing `user-search`.
+Item `text_search` publishes `item-search`. Both read cumulative partitioned Hive data through `rec-algorithm-runner`, publish
 versioned Elasticsearch indexes, ask `rec-console` to atomically activate their aliases, and finish
 with an online recommendation check.
 
@@ -333,3 +334,35 @@ Application build output, Web Demo logs, and PID state are isolated under
 
 See the [distribution architecture](../docs/architecture.md#feature-and-model-lifecycle) for
 feature/model ownership and publication boundaries, and [CI](../docs/ci.md) for acceptance coverage.
+
+
+Optional semantic recall: configure the local model mount and GPU as described in
+[the vLLM infrastructure guide](https://github.com/open-rec/bigdata-platform/blob/master/vllm/README.md), then export
+`EMBEDDING_ENABLED=true` before starting this profile. Startup verifies online/offline
+embedding compatibility and initializes `item_title_emb.csv` into the Qwen aliases.
+Default startup does not require vLLM or GPU. Graph overrides from previous deployments
+need the new query timeout/configuration. Direct component Compose deployments must
+initialize candidate vectors separately before enabling online query embeddings.
+
+### Scheduled title-vector recall
+
+`openrec_daily_recall` (02:00 UTC) now includes `query_title_emb`, alongside all other
+item-graph tables. `openrec_daily_user_recall` (02:30 UTC) covers all four user-graph tables.
+Title generation uses the cumulative item snapshot and the shared vLLM service; deploy
+with `EMBEDDING_ENABLED=true` and the model mount/GPU settings documented in
+[the vLLM component](https://github.com/open-rec/bigdata-platform/blob/master/vllm/README.md). The runner, rec-server and
+rec-console must use the same embedding model/dimensions. Default daily title publication
+requires that service; CPU-only deployments should omit `query_title_emb` from their
+published DAG algorithm list explicitly.
+
+The title index is global: `query-title-emb-index`. rec-console manages its versioned
+staging indexes, activation and rollback (`algorithm=query-title-emb`). Scheduled releases
+and optional CSV bootstrap share this alias; bootstrap detaches the actual prior index
+before adding its replacement. Airflow checks the active release and positive successful
+recall diagnostics, rather than demanding that every channel appear in final Top-N.
+
+Rebuild rec-algorithm and rec-console with these companion changes and load the updated
+DAG templates. Existing custom/published DAG configs retain their explicit algorithm lists;
+add `query_title_emb` through the console and publish a new configuration version to enable
+it there. A disabled embedding provider or failed generation is a task failure, not a
+successful empty release. No changes to user-event ingestion are included in these jobs.

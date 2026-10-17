@@ -6,7 +6,7 @@
   "components": {
     "bigdata-platform": {
       "repository": "https://github.com/open-rec/bigdata-platform.git",
-      "ref": "a94a83e4d4e0d8524c0b5739855ee71fd162bbee",
+      "ref": "f2e62e5c444dee6b51c022d874b23724948481df",
       "required_for": [
         "standalone",
         "cluster"
@@ -28,7 +28,7 @@
     },
     "rec-algorithm": {
       "repository": "https://github.com/open-rec/rec-algorithm.git",
-      "ref": "e37c72c7448bde8d2f0050eae6743fc0389a4cbf",
+      "ref": "bebea78a43c50f1637f5d9760385bddedaf97256",
       "required_for": [
         "standalone",
         "cluster"
@@ -36,7 +36,7 @@
     },
     "rec-console": {
       "repository": "https://github.com/open-rec/rec-console.git",
-      "ref": "b69a38e45b260f8e0c678e94cd9b2a2a6de81a6f",
+      "ref": "82d8a77a4b3d5f69ab71abb8b33d44bd3ffdb0e0",
       "required_for": [
         "standalone",
         "cluster"
@@ -44,7 +44,7 @@
     },
     "rec-server": {
       "repository": "https://github.com/open-rec/rec-server.git",
-      "ref": "7c78f1e10de430868863416f1e157a0d2d5ac59b",
+      "ref": "7381bfc05bf34bc62b81a4c8d1fb627fbedc98ef",
       "required_for": [
         "standalone",
         "cluster"

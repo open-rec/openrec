@@ -264,6 +264,22 @@ done
 docker exec spark-master kill -0 "${spark_pid:-0}" 2>/dev/null \
   || die "Spark data-processor failed; inspect docker exec spark-master cat ${SPARK_LOG_FILE}"
 
+if [[ "${EMBEDDING_ENABLED:-false}" == "true" ]]; then
+  note "Starting optional vLLM embedding infrastructure"
+  "${WORKSPACE}/bigdata-platform/platform.sh" build vllm
+  "${WORKSPACE}/bigdata-platform/platform.sh" up vllm
+  embedding_ready=false
+  for attempt in {1..60}; do
+    if "${WORKSPACE}/bigdata-platform/platform.sh" smoke vllm; then
+      embedding_ready=true
+      break
+    fi
+    sleep 5
+  done
+  [[ "${embedding_ready}" == "true" ]] || die "vLLM embedding service did not become ready"
+  python3 "${WORKSPACE}/example/scripts/verify_embedding.py"
+fi
+
 note "Loading sample serving data"
 (
   cd "${WORKSPACE}/example"
@@ -280,7 +296,7 @@ for recall_kind in hot item-cf-i2i content-i2i user-cf-u2i; do
   wait_for_es_documents "${recall_kind} recall alias" \
     "openrec-recall-${recall_kind}-active"
 done
-wait_for_es_documents "embedding recall index" "scene_0-item_seq_emb-index"
+wait_for_es_documents "embedding recall index" "scene_0-item-seq-emb-index"
 
 export RECOMMEND_WARMUP_USER_ID=user_0
 export RECOMMEND_WARMUP_SCENE=scene_0

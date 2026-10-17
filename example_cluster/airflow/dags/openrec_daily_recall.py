@@ -15,18 +15,20 @@ REC_SERVER = "http://rec-server:13579"
 REC_CONSOLE = "http://rec-console:8095"
 DEFAULT_CONFIG = {
     "schedule": "0 2 * * *",
-    "algorithms": ["hot", "new", "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "sparse"],
+    "algorithms": ["hot", "new", "item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "text_search", "query_title_emb"],
     "default_revision": "r001", "max_index_versions": 2,
     "retries": 1, "retry_delay_minutes": 5,
 }
 SERVING_TABLES = {
+    "query_title_emb": "query-title-emb",
     "hot": "hot", "new": "new", "item_cf_i2i": "item-cf-i2i",
-    "content_i2i": "content-i2i", "user_cf_u2i": "user-cf-u2i", "sparse": "sparse",
+    "content_i2i": "content-i2i", "user_cf_u2i": "user-cf-u2i", "text_search": "item-search",
 }
 RECALL_TYPES = {
+    "query_title_emb": "query_title_emb",
     "hot": "hot", "new": "new", "item_cf_i2i": "item_cf_i2i",
     "content_i2i": "content_i2i", "user_cf_u2i": "user_cf_u2i",
-    "item_seq_emb": "item_seq_emb", "sparse": "sparse",
+    "item_seq_emb": "item_seq_emb", "text_search": "item_search",
 }
 CONFIG_PATH = Path("/opt/openrec/dag-config/openrec_daily_recall.json")
 try:
@@ -112,16 +114,15 @@ def openrec_daily_recall():
                 headers={"Content-Type": "application/json"},
                 body={"requestId": "daily-recall-smoke", "body": {
                     "scene": "scene_0", "size": 50, "userId": "user_0",
-                    "deviceId": "daily-recall-smoke", "type": "click", "debug": False,
+                    "deviceId": "daily-recall-smoke", "type": "click", "debug": True,
                     "params": {"query": "category_0"},
                 }},
             )
         finally:
             _redis_command("DEL", exposure_key)
-        results = (response.get("data") or {}).get("results") or []
-        channels = {result.get("recallFrom") for result in results}
-        for result in results:
-            channels.update((result.get("recallScores") or {}).keys())
+        diagnostics = (response.get("data") or {}).get("recallDiagnostics") or []
+        channels = {entry.get("channel") for entry in diagnostics
+                    if entry.get("status") == "SUCCESS" and entry.get("candidateCount", 0) > 0}
         # NewNode intentionally applies a wall-clock freshness window. A valid
         # backfill (or future-dated acceptance fixture) may therefore publish a
         # non-empty new index without returning that channel online.

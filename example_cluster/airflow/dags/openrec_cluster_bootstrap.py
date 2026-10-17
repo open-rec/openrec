@@ -26,7 +26,7 @@ REQUIRED_RECALL_CHANNELS = {
     "content_i2i",
     "user_cf_u2i",
     "item_seq_emb",
-    "sparse",
+    "item_search",
     "hot",
 }
 
@@ -109,8 +109,9 @@ def _recall_counts():
         "openrec-recall-item-cf-i2i-active",
         "openrec-recall-content-i2i-active",
         "openrec-recall-user-cf-u2i-active",
-        "openrec-recall-sparse-active",
-        "scene_0-item_seq_emb-index",
+        "openrec-recall-item-search-active",
+        "openrec-recall-user-search-active",
+        "scene_0-item-seq-emb-index",
     ):
         try:
             response = _request(
@@ -257,6 +258,17 @@ def openrec_cluster_bootstrap():
                 % (response, _recall_counts())
             )
         _validate_recall_channels(data)
+        user_response = _request(
+            "http://%s:13579/api/recommend/user" % REC_SERVER, method="POST",
+            headers={"Content-Type": "application/json"},
+            body={"requestId": "bootstrap-user-search", "body": {
+                "scene": "scene_0", "size": 12, "userId": "user_0", "debug": True,
+                "params": {"query": "CN"}}})
+        diagnostics = (user_response.get("data") or {}).get("recallDiagnostics") or []
+        if not any(node.get("channel") == "user_search" and node.get("status") == "SUCCESS"
+                   and node.get("candidateCount", 0) > 0 for node in diagnostics):
+            raise RuntimeError("user text search failed: %s" % user_response)
+
         unranked = [
             result.get("id")
             for result in data["results"]
