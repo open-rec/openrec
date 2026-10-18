@@ -1,0 +1,87 @@
+# OpenRec cluster workflows
+
+These DAGs belong to the complete recommendation example, while the Airflow runtime belongs to
+`bigdata-platform`. `start.sh` supplies this directory through `AIRFLOW_DAGS_PATH`, starts the
+long-running services, and triggers `openrec_cluster_bootstrap`.
+
+The DAGs use only Kafka, Hive, Spark, Redis, Elasticsearch, and HTTP network endpoints. They do not
+mount the Docker socket or manage containers.
+
+`openrec_cluster_bootstrap` is manually scheduled and can be rerun after `start.sh` has installed
+Hive tables and loaded sample entities/recall data. The DAG validates dependencies, requests
+server-side warmup, waits for `/ready`, sends a ranked recommendation, and then verifies a unique
+user mutation through Kafka -> data-processor -> Redis. Bootstrap itself does not install Hive
+tables or load the full fixture.
+
+## Workflow inventory
+
+| DAG | Schedule | Responsibility |
+|---|---|---|
+| `openrec_cluster_bootstrap` | Manual | Check platform/services, warm and verify recommendations, then verify online ingestion |
+| `openrec_daily_recall` | Published configuration | Run the ordered recall pipeline, write staging indexes, and request validated activation through rec-console |
+| `openrec_daily_user_recall` | Published configuration | Build and activate UserCF, content, ALS U2U and user-search tables |
+| `openrec_recall_rollback` | Manual | Ask rec-console to restore a retained recall-index version |
+| `openrec_rank_model` | Manual | Prepare training data, train/evaluate LR, FM, or LightGBM, and retain an immutable release for manual deployment |
+| `openrec_rank_model_rollback` | Manual | Reactivate a retained rank-model release through rec-console and rank-engine |
+
+The daily recall schedule, algorithm order, revision, retention, and retry policy come from the
+versioned configuration published by rec-console. Airflow remains the execution and run-state
+authority; rec-console never edits the Python DAG source.
+
+Publication task IDs use `publish-<tableName>`, with `tableName` matching rec-server's
+`item_graph.json` or `user_graph.json`. Examples are `publish-item-search`,
+`publish-user-search`, `publish-item-cf-i2i`, and `publish-user-als-u2u`. Internal
+algorithm arguments keep underscore names (`text_search` is selected by target).
+After upgrading, republish saved configurations with `text_search` instead of
+`sparse` and `user_als_u2u` instead of `user_emb_u2u`, then reparse the DAGs. Finish
+or stop older runs before using the renamed tasks; historical task IDs are retained.
+
+## Rank training boundary
+
+rec-console validates feature selection through the rec-algorithm runner, then triggers
+`openrec_rank_model`. That DAG calls the runner's `/jobs/rank/train`: Spark prepares point-in-time
+samples and runs the offline trainer to evaluate and retain a version. It does not call
+rank-engine, and training remains available while inference is stopped. Current model parameter
+training runs on the offline driver CPU, not across Spark executors.
+
+A successful run does not activate the result. Publish explicitly through rec-console; rollback
+also requires the online service. New features and model adapters must be implemented and checked
+in both processing paths before they become selectable. These DAGs do not generate feature code.
+
+## Operation and diagnosis
+
+`cluster/start.sh` starts the platform and triggers bootstrap. Use rec-console or the
+authenticated Airflow UI on host port 8091 to inspect DagRuns, task attempts, and logs. Tasks are
+designed to be retried, while recall and model publication use immutable versions plus explicit
+activation so an incomplete run does not replace the active artifact. Complete acceptance commands
+and failure-log locations are documented in the parent [cluster guide](../README.md).
+
+## Recommendation acceptance
+
+`recommendation_warmup` authenticates with `SERVING_GRAPH_TOKEN`, which must match rec-server.
+It requests an independent warmup budget followed by consecutive normal-budget verification.
+`recommendation_smoke` uses `debug: true` and requires successful, nonempty `recallDiagnostics`
+for the fixture-backed item-CF, content, UserCF, sequence embedding, item_search and hot channels.
+New-item supply is time-dependent and query-title recall requires the optional vLLM service
+or a supplied vector, so these are not mandatory for the default bootstrap sample. A candidate shared by multiple channels counts toward each;
+the final twelve results need not display every channel. They must remain nonempty and ranked.
+
+`ingestion_smoke` runs only after recommendation smoke succeeds. Its `upstream_failed` state
+means it did not execute, not that Kafka ingestion independently failed. Inspect the failed
+upstream task, diagnostics and the matching request ID in rec-server's `graph_trace` logs.
+
+## Daily title vectors
+
+The default item pipeline excludes title embeddings so GitHub CI needs no GPU, vLLM,
+or Qwen weights. Explicitly add `query_title_emb` through rec-console on GPU deployments
+to create `publish-query-title-emb`, invoking the runner's
+`query_title_emb` algorithm. It encodes current item titles through vLLM and delegates
+release preparation/activation to rec-console for the global `query-title-emb-index` alias.
+Set `EMBEDDING_ENABLED=true` and matching model/endpoint/dimension settings when deploying
+this full pipeline. Without vLLM, explicitly remove this algorithm from the published
+DAG config. Existing published lists are preserved and require a new configuration version
+to add the title task. Daily verification checks nonempty successful recall diagnostics,
+including `query_title_emb` when selected; final ranking need not select every channel.
+
+Rollback uses the existing `openrec_recall_rollback` DAG with
+`{"algorithm":"query-title-emb"}` and optionally a retained `target_index`.

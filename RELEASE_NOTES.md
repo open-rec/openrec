@@ -14,7 +14,7 @@ OpenRec distribution. First coordinated OpenRec source release.
 
 ## Installation and compatibility
 
-Use `scripts/checkout-components.sh` to obtain the exact component commits in `release/openrec.json`. All OpenRec Java modules and clients require Java 21. Maven artifacts and the rec-algorithm package are now `0.1.0`; old `1.0-SNAPSHOT` jar names and `0.0.1` wheel references must be updated together.
+Use `scripts/release/checkout-components.sh` to obtain the exact component commits in `release/openrec.json`. All OpenRec Java modules and clients require Java 21. Maven artifacts and the rec-algorithm package are now `0.1.0`; old `1.0-SNAPSHOT` jar names and `0.0.1` wheel references must be updated together.
 
 This is a source distribution for evaluation, development and distributed integration. Standalone bypasses ranking; cluster enables the full lifecycle. The console has no authentication, sample credentials must be replaced, and the supplied cluster is not a production HA topology. Functional CI timeout overrides are not latency guarantees.
 

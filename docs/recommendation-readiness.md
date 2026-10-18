@@ -14,7 +14,7 @@ The startup sequence is:
 4. Require three consecutive successful rounds under the configured normal request/node budgets.
 5. Mark the covered target/experiment graphs ready, run product smoke assertions, then start Web Demo.
 
-Standalone uses `scripts/wait-recommendation-ready.py`; the cluster bootstrap DAG uses the same
+Standalone uses `scripts/runtime/wait-recommendation-ready.py`; the cluster bootstrap DAG uses the same
 server API. Airflow receives `SERVING_GRAPH_TOKEN` from the platform Compose environment. Keep
 this value consistent with rec-server when overriding it. The internal POST is authenticated and
 returns 202; `/ready` reports progress and returns 503 until verification succeeds.
@@ -43,7 +43,7 @@ readiness endpoints. The Kafka envelope is unchanged.
 - Standalone: complete source-build startup passed, followed by two cold restarts. Both reached READY
   after one independent warmup and three normal-budget rounds; requests before readiness were 503,
   exposure records were unchanged by probes, and ten subsequent business recommendations succeeded.
-- Cluster: `RECOMMEND_DEADLINE_MS=10000 OPENREC_GRAPH_NODE_TIMEOUT_MS=1000 ./example_cluster/start.sh --local`
+- Cluster: `RECOMMEND_DEADLINE_MS=10000 OPENREC_GRAPH_NODE_TIMEOUT_MS=1000 ./cluster/start.sh --local`
   passed with the CI functional budgets, including Kafka/processor feature parity, ranked recommendations
   and ingestion. All 13 tasks in `openrec-start-20261005T022508Z` succeeded; the readiness warmup task
   completed before recommendation smoke. These are local integration results, not a remote CI run.

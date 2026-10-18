@@ -6,6 +6,7 @@ import com.openrec.example.util.JsonUtil;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.junit.Test;
+import com.openrec.example.task.LanguageEmbeddingTask;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +38,7 @@ public class LanguageEmbeddingIntegrationTest {
                     printer.printRecord("another-scene", document.get("id"), JsonUtil.objToJson(document.get("vector")));
                 }
             }
-            InitStandalone.initEsLanguageEmbeddingData(es, input.toString(), alias);
+            LanguageEmbeddingTask.load(es, input.toString(), alias);
             assertEquals(documents.size(), es.count(c -> c.index(alias)).count());
             String first = es.indices().getAlias(a -> a.name(alias)).result().keySet().iterator().next();
             // Scheduled publication uses a different physical prefix from bootstrap.
@@ -45,7 +46,7 @@ public class LanguageEmbeddingIntegrationTest {
             es.indices().updateAliases(a -> a
                 .actions(action -> action.remove(r -> r.index(first).alias(alias)))
                 .actions(action -> action.add(add -> add.index(scheduled).alias(alias))));
-            InitStandalone.initEsLanguageEmbeddingData(es, input.toString(), alias);
+            LanguageEmbeddingTask.load(es, input.toString(), alias);
             assertEquals(1, es.indices().getAlias(a -> a.name(alias)).result().size());
             String second = es.indices().getAlias(a -> a.name(alias)).result().keySet().iterator().next();
             assertNotEquals(first, second);
@@ -59,14 +60,14 @@ public class LanguageEmbeddingIntegrationTest {
                     vector.stream().map(value -> -value).collect(java.util.stream.Collectors.toList())));
             }
             try {
-                InitStandalone.initEsLanguageEmbeddingData(es, input.toString(), alias);
+                LanguageEmbeddingTask.load(es, input.toString(), alias);
                 fail("conflicting item vectors must fail before activation");
             } catch (IllegalArgumentException expected) {
                 assertEquals(second, es.indices().getAlias(a -> a.name(alias)).result().keySet().iterator().next());
             }
             Files.writeString(input, "scene,item,vector\n" + scene + ",invalid,\"[1,0]\"\n");
             try {
-                InitStandalone.initEsLanguageEmbeddingData(es, input.toString(), alias);
+                LanguageEmbeddingTask.load(es, input.toString(), alias);
                 fail("invalid vector must fail before activation");
             } catch (IllegalArgumentException expected) {
                 assertEquals(second, es.indices().getAlias(a -> a.name(alias)).result().keySet().iterator().next());

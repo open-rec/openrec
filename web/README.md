@@ -20,15 +20,15 @@ which behaviours move them?*
 2. `rec-server` on port 13579 with representative warmup completed and `/ready` returning HTTP 200
 3. JDK 21 and Maven 3.9+, with the matching Java 21 `rec-proto` and `rec-client` installed locally
 
-Full setup: [example_standalone](../example_standalone).
+Full setup: [standalone](../standalone).
 
-For the shortest path, run `../example_standalone/start.sh` from this directory. It initializes the
+For the shortest path, run `../standalone/start.sh` from this directory. It initializes the
 whole recommendation chain and starts this demo last on port 12345.
 
 ## build and run
 
 ```shell
-cd example/web
+cd openrec/web
 # JDK 21 / Spring Boot 4.1.1
 mvn clean verify
 java -jar target/rec-example-web-0.1.0.jar
@@ -90,7 +90,7 @@ a ranking failure or timeout; it does not identify the cause on its own. A succe
 score of 0 remains distinct from null. Inspect the request's `graph_trace` and service logs to
 distinguish bypass from failures and timeouts. Standalone deliberately bypasses
 ranking; starting rank-engine alone does not enable it. Use the complete
-[cluster startup](../example_cluster/README.md) to validate real ranking, displayed as `rank=0.7700`.
+[cluster startup](../cluster/README.md) to validate real ranking, displayed as `rank=0.7700`.
 
 Combine de-duplicates channels in configured `recallTypes` order, so the first channel becomes
 an item's primary `recallFrom`; every secondary hit remains in `recallScores` / `meta`. The default
@@ -115,7 +115,7 @@ every channel and merges them in `combine`; nothing in a request selects one. `R
 exists but no node reads it, so "hot only" is not expressible — asking anyway would return exactly
 what 猜你喜欢 returns, under a label that lies.
 
-`InitStandalone` maps the normalized `new.csv` freshness score into the current Unix-time domain
+`RecallTableTask` maps the normalized `new.csv` freshness score into the current Unix-time domain
 (`score × one load-time timestamp`). This preserves the source ordering while allowing `NewNode` to
 apply its `[now - duration, now]` query. Both `NewNode` and the dedicated tab divide the stored score
 by the query-time Unix timestamp before returning it, keeping the displayed business score in the

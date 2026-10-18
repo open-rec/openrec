@@ -7,7 +7,7 @@ on:
   push:
     branches: [master, 'release/**']
     paths:
-      - 'example_standalone/**'
+      - 'standalone/**'
       - 'init/**'
       - 'web/**'
       - 'data/test/**'
@@ -33,7 +33,7 @@ jobs:
       - name: Check out distribution
         uses: actions/checkout@v7
         with:
-          path: openrec/example
+          path: openrec/openrec
 
       - name: Set up Java 21 for all Java components
         uses: actions/setup-java@v5
@@ -43,31 +43,31 @@ jobs:
           cache: maven
 
       - name: Check out manifest components
-        working-directory: openrec/example
-        run: ./scripts/checkout-components.sh
+        working-directory: openrec/openrec
+        run: ./scripts/release/checkout-components.sh
 
       - name: Start and verify the complete standalone distribution
         working-directory: openrec
-        run: ./example/example_standalone/start.sh
+        run: ./openrec/standalone/start.sh
 
       - name: Capture diagnostics
         if: failure()
         working-directory: openrec
         run: |
           docker ps -a
-          docker compose -f example/example_standalone/docker-compose.yml logs --no-color > example/example_standalone/.runtime/compose.log 2>&1 || true
-          bigdata-platform/platform.sh logs redis elasticsearch > example/example_standalone/.runtime/platform.log 2>&1 || true
+          docker compose -f openrec/standalone/docker-compose.yml logs --no-color > openrec/standalone/.runtime/compose.log 2>&1 || true
+          bigdata-platform/platform.sh logs redis elasticsearch > openrec/standalone/.runtime/platform.log 2>&1 || true
 
       - name: Upload diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: standalone-e2e-logs
-          path: openrec/example/example_standalone/.runtime/
+          path: openrec/openrec/standalone/.runtime/
           if-no-files-found: ignore
           retention-days: 7
 
       - name: Stop standalone distribution
         if: always()
         working-directory: openrec
-        run: ./example/example_standalone/stop.sh --with-storage || true
+        run: ./openrec/standalone/stop.sh --with-storage || true

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 
-HELPER = Path(__file__).resolve().parents[1] / "lib" / "standalone-recommendation.sh"
+HELPER = Path(__file__).resolve().parents[2] / "standalone" / "verify.sh"
 CHANNELS = ["item_cf_i2i", "content_i2i", "user_cf_u2i", "item_seq_emb", "item_search", "hot"]
 
 

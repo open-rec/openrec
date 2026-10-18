@@ -1,0 +1,9 @@
+name: openrec-cluster-apps
+
+include:
+  - path: ../../rec-server/docker-compose.cluster.yml
+  - path:
+      - ../../rank-engine/docker-compose.cluster.yml
+      - ./rank-init.override.yml
+  - path: ../../rec-algorithm/docker-compose.cluster.yml
+  - path: ../../rec-console/docker-compose.cluster.yml

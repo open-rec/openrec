@@ -5,9 +5,9 @@ development and acceptance testing, not as a production ingestion path.
 
 Loads a CSV dataset into a running Redis + Elasticsearch so `rec-server` has something to recommend.
 This is the bootstrap step of
-[example_standalone](../example_standalone); it is a one-shot batch job, not a service.
+[standalone](../standalone) and [cluster](../cluster); it is a one-shot batch job, not a service.
 
-Entry point: `com.openrec.example.InitStandalone`.
+Entry point: `com.openrec.example.InitServingData`.
 
 ## build
 
@@ -17,7 +17,7 @@ Use JDK 21 and Maven 3.9+. The loader, `rec-proto` and `rec-client` all target `
 ```shell
 cd rec-server && mvn clean install -DskipTests && cd ..
 cd sdk/java-client && mvn clean install -DskipTests && cd ../..
-cd example/init && mvn clean package -DskipTests
+cd openrec/init && mvn clean package -DskipTests
 ```
 
 Produces `target/rec-example-init-0.1.0-jar-with-dependencies.jar`.
@@ -35,11 +35,12 @@ cd ..
 
 ```shell
 java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir] [model_dir]
+  com.openrec.example.InitServingData <standalone|cluster> <redis_host> <redis_port> <es_host> <es_port> <es_user> <es_password> [data_dir] [model_dir]
 ```
 
 | Argument | Example |
 |---|---|
+| `mode` | required: `standalone` or `cluster` |
 | `redis_host` `redis_port` | `127.0.0.1` `6380` |
 | `es_host` `es_port` | `127.0.0.1` `9200` |
 | `es_user` `es_password` | `elastic` `openrec-es-password` |
@@ -49,9 +50,9 @@ java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
 `data_dir` is resolved **relative to the working directory**, so run it from the repo root:
 
 ```shell
-cd example
+cd openrec
 java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
-  com.openrec.example.InitStandalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
+  com.openrec.example.InitServingData standalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 ```
 
 Import time depends on storage and host load. The loader writes entities, events, feature snapshots,
@@ -59,14 +60,15 @@ five Elasticsearch item table-recall families, per-scene vector indexes, and the
 item/user search indexes. Verify the required aliases and sample keys after loading instead of relying on an
 old fixed index/key count or duration estimate.
 
-Redis is loaded before Elasticsearch. Thrown import errors abort startup with a nonzero exit code;
-client-creation paths that return no client only log an error and skip that store. Check the output
-and verify both stores rather than relying on the exit code alone.
+All selected task inputs are checked before any storage client is opened. Redis tasks run before
+Elasticsearch tasks. Missing files, client-creation failures, and import errors abort the chain with
+a nonzero exit code and the failed task name. Completed writes are not rolled back. Clients are
+closed on success and failure.
 
 ## expected data layout
 
 ```
-example/data/test/
+openrec/data/test/
 ├── item.csv          id,title,category,tags,scene,pub_time,modify_time,expire_time,status,weight,ext_fields
 ├── user.csv          id,device_id,name,gender,age,country,city,phone,tags,register_time,login_time,ext_fields
 └── event.csv         id,user_id,item_id,trace_id,scene,type,value,time,is_login,ext_fields
@@ -147,3 +149,7 @@ deduplicated, and conflicting vectors for the same ID reject activation. The sou
 is streamed in batches. Existing active aliases remain
 available until validation succeeds; previous indexes remain available for rollback.
 The example startup performs the inference compatibility check before this import.
+
+Raw-data validation and model preparation live in `tools/`; see the
+[tool directory guide](../scripts/README.md). Mode startup scripts source `tools/init.sh`
+before invoking the Java task chain.

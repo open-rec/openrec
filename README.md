@@ -33,8 +33,6 @@ The scripts and GitHub Actions use only Java 21 for every Java component. `JAVA_
 to JDK 21 also works without an explicit `OPENREC_JAVA21_HOME`. The rec-server Dockerfile independently
 builds and runs on Java 21. The companion commits are recorded in `release/openrec.json`. Publish those component commits
 before publishing this distribution commit so a fresh checkout can resolve the manifest.
-See [single-JDK migration](docs/java21-unified-build.md) for the current build requirements and
-[server migration](docs/java21-migration.md) and [processor/web migration](docs/java21-processors-web-migration.md) for validation and rollback details.
 
 See [recommendation readiness](docs/recommendation-readiness.md) for startup warmup, traffic admission
 and the required companion versions.
@@ -48,7 +46,7 @@ and the required companion versions.
   sample data, and executes a real recommendation request.
 - Cluster E2E runs the full startup path, infrastructure smoke, Kafka/Spark/Redis feature parity,
   recommendation warmup, recall-node diagnostics, ranked recommendations and Kafka ingestion.
-  The separate `example_cluster/verify_*.sh` flows cover deeper persistence, recall publication,
+  The separate `cluster/verify_*.sh` flows cover deeper persistence, recall publication,
   analytics, deletion, model lifecycle and rollback acceptance.
 - Release tags package the manifest, deployment definitions, documentation, sample data, and
   checksums as one immutable distribution bundle.
@@ -66,7 +64,7 @@ samples with Spark and trains/evaluates in an isolated offline process. rank-eng
 published versions and performs online inference. Training never automatically publishes.
 
 Feature implementation and backfills remain engineering tasks. See the
-[cluster model lifecycle guide](example_cluster/README.md#rank-model-lifecycle-acceptance) for
+[cluster model lifecycle guide](cluster/README.md#rank-model-lifecycle-acceptance) for
 independent training/publication, coordinated component upgrades and local-image validation.
 
 ## Quick start
@@ -74,9 +72,9 @@ independent training/publication, coordinated component upgrades and local-image
 ### 1. Clone the distribution and components
 
 ```shell
-git clone --branch v0.1.0 https://github.com/open-rec/openrec.git example
-cd example
-./scripts/checkout-components.sh
+git clone https://github.com/open-rec/openrec.git openrec
+cd openrec
+./scripts/release/checkout-components.sh
 ```
 
 The checkout script creates the required sibling layout and checks out the refs in the release
@@ -84,7 +82,7 @@ manifest:
 
 ```text
 openrec/
-├── example/
+├── openrec/
 ├── bigdata-platform/
 ├── data-processor/
 ├── rank-engine/
@@ -97,13 +95,13 @@ openrec/
 Pass a destination to create the workspace somewhere else:
 
 ```shell
-./scripts/checkout-components.sh /opt/openrec
+./scripts/release/checkout-components.sh /opt/openrec
 ```
 
 ### 2. Start standalone
 
 ```shell
-./example_standalone/start.sh
+./standalone/start.sh
 ```
 
 The command builds current component sources in an isolated runtime directory, starts the serving
@@ -121,12 +119,12 @@ Stop the applications while retaining infrastructure data, or remove the complet
 runtime:
 
 ```shell
-./example_standalone/stop.sh
-./example_standalone/stop.sh --with-storage
+./standalone/stop.sh
+./standalone/stop.sh --with-storage
 ```
 
 Sample credentials and published ports are intended only for an isolated development machine.
-Review the [standalone guide](example_standalone) before sharing the deployment on a network.
+Review the [standalone guide](standalone) before sharing the deployment on a network.
 
 ## Deployment modes
 
@@ -144,16 +142,16 @@ Review the [standalone guide](example_standalone) before sharing the deployment 
 Start cluster only on a host sized for the complete data platform:
 
 ```shell
-./example_cluster/start.sh
-./example_cluster/verify_daily_recall.sh
-./example_cluster/verify_entity_delete.sh
-./example_cluster/verify_data_analytics.sh
-./example_cluster/verify_rank_model.sh
+./cluster/start.sh
+./cluster/verify_daily_recall.sh
+./cluster/verify_entity_delete.sh
+./cluster/verify_data_analytics.sh
+./cluster/verify_rank_model.sh
 ```
 
-See the [cluster guide](example_cluster) for prerequisites, startup ownership, endpoints, failure
+See the [cluster guide](cluster) for prerequisites, startup ownership, endpoints, failure
 diagnosis, and shutdown behavior.
-For the local image/mirror configuration, start cluster with `./example_cluster/start.sh --local`.
+For the local image/mirror configuration, start cluster with `./cluster/start.sh --local`.
 Standalone startup does not need this flag.
 Sample recall imports reserve revision `r000`; scheduled daily publications start at `r001`.
 This keeps same-day fixture indexes separate from immutable offline releases.
@@ -163,8 +161,8 @@ This keeps same-day fixture indexes separate from immutable offline releases.
 | Path | Purpose |
 |---|---|
 | [`release/openrec.json`](release/openrec.json) | Distribution version, component repositories, refs, and compatibility metadata |
-| [`example_standalone`](example_standalone) | Minimum complete deployment and smoke acceptance |
-| [`example_cluster`](example_cluster) | Distributed deployment and lifecycle acceptance suites |
+| [`standalone`](standalone) | Minimum complete deployment and smoke acceptance |
+| [`cluster`](cluster) | Distributed deployment and lifecycle acceptance suites |
 | [`data`](data) | Small committed dataset for deterministic CI and evaluation |
 | [`init`](init) | Redis and Elasticsearch data/recall loader |
 | [`web`](web) | Interactive recommendation and feedback demo |
@@ -223,3 +221,22 @@ component-local defects in the repository that owns the code. Contributions foll
 
 This distribution is licensed under the [Apache License 2.0](LICENSE). Included component and
 third-party artifacts retain their respective licenses.
+
+## Raw-data initialization
+
+Both modes accept `OPENREC_DATA_DIR` and `OPENREC_MODEL_ROOT`. Missing or stale
+model bundles are rebuilt from raw CSVs before import. Mode-specific initialization
+lives in each mode’s `init.sh`, with a shared Java storage loader. See
+[initialization inputs, reuse rules, and existing-data behavior](docs/initialization.md).
+
+See the [tool directory guide](scripts/README.md) for initialization, runtime checks, CI, and release commands.
+
+### Local source regression with existing images
+
+Use `./standalone/start.sh --reuse-images` or `./cluster/start.sh --reuse-images`
+when compatible application and infrastructure images already exist locally. This mode compiles
+current Java services and frontend assets, mounts Python sources, and refreshes the Spark algorithm
+ZIP. It never builds or pulls images; missing images cause startup to fail. Node.js/npm are needed
+for the local frontend build. Dependency or Dockerfile changes require an explicit image rebuild.
+The sibling `auto-test` runner uses this mode by default for `--start` and `--restart`;
+its `--build-images` flag opts into the regular image-building startup path.

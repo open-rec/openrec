@@ -7,7 +7,7 @@ from pathlib import Path
 import unittest
 
 
-SOURCE = Path(__file__).resolve().parents[2] / "example_cluster/airflow/dags/openrec_cluster_bootstrap.py"
+SOURCE = Path(__file__).resolve().parents[2] / "cluster/airflow/dags/openrec_cluster_bootstrap.py"
 tree = ast.parse(SOURCE.read_text())
 selected = [node for node in tree.body
             if isinstance(node, ast.FunctionDef) and node.name in {"_validate_recall_channels", "_recommendation_request"}

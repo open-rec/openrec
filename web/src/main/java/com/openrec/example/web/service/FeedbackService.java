@@ -140,7 +140,7 @@ public class FeedbackService {
         if (members == null || members.isEmpty()) {
             return Collections.emptySet();
         }
-        // ids written by InitStandalone carry JSON quotes; those pushed through the API do not
+        // ids written by InitServingData carry JSON quotes; those pushed through the API do not
         Set<String> exposed = new HashSet<>(members.size());
         for (String member : members) {
             exposed.add(Ids.unquote(member));

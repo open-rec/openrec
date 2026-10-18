@@ -4,7 +4,7 @@ import unittest
 
 
 SPEC = importlib.util.spec_from_file_location(
-    "functional_graph", Path(__file__).resolve().parents[1] / "configure-functional-graph.py"
+    "functional_graph", Path(__file__).resolve().parents[1] / "runtime" / "configure-functional-graph.py"
 )
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)

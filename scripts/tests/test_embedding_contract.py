@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
-spec = importlib.util.spec_from_file_location('verify_embedding', ROOT / 'example/scripts/verify_embedding.py')
+spec = importlib.util.spec_from_file_location('verify_embedding', ROOT / 'openrec/scripts/runtime/verify_embedding.py')
 verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
 
@@ -25,10 +25,10 @@ class EmbeddingContractTest(unittest.TestCase):
             compose = (ROOT / f'rec-server/docker-compose.{mode}.yml').read_text()
             self.assertIn('EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-false}', compose)
             self.assertIn('http://vllm:8000/v1/embeddings', compose)
-            startup = (ROOT / f'example/example_{mode}/start.sh').read_text()
-            self.assertIn('scripts/verify_embedding.py', startup)
-            self.assertLess(startup.index('scripts/verify_embedding.py'),
-                            startup.index('com.openrec.example.InitStandalone'))
+            startup = (ROOT / f'openrec/{mode}/start.sh').read_text()
+            self.assertIn('scripts/runtime/verify_embedding.py', startup)
+            self.assertLess(startup.index('scripts/runtime/verify_embedding.py'),
+                            startup.index('openrec_initialize'))
 
     def test_query_graph_and_language_initializer_agree(self):
         graph = json.loads((ROOT / 'rec-server/server/src/main/resources/item_graph.json').read_text())
@@ -38,7 +38,7 @@ class EmbeddingContractTest(unittest.TestCase):
         for channel in ('query_title_emb', 'user_cf_u2i', 'item_search'):
             self.assertIn(('user_trigger', channel), edges)
             self.assertIn((channel, 'combine'), edges)
-        initializer = (ROOT / 'example/init/src/main/java/com/openrec/example/InitStandalone.java').read_text()
+        initializer = (ROOT / 'openrec/init/src/main/java/com/openrec/example/task/LanguageEmbeddingTask.java').read_text()
         self.assertIn('/item_title_emb.csv', initializer)
         self.assertIn('"query-title-emb-index"', initializer)
         self.assertIn('"similarity", "cosine"', initializer)

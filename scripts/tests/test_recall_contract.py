@@ -2,11 +2,12 @@
 import ast
 import csv
 import json
+import runpy
 from pathlib import Path
 import unittest
 
 WORKSPACE = Path(__file__).resolve().parents[3]
-DAGS = WORKSPACE / 'example/example_cluster/airflow/dags'
+DAGS = WORKSPACE / 'openrec/cluster/airflow/dags'
 
 
 def constants(path):
@@ -45,14 +46,14 @@ class RecallContractTest(unittest.TestCase):
             self.skipTest('requires sibling source repositories')
         manifest_path = WORKSPACE / 'model/default.manifest.json'
         manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else None
-        publisher = constants(WORKSPACE / 'rec-algorithm/jobs/spark/recall_job.py')['SERVING_TABLES']
+        publisher = runpy.run_path(str(WORKSPACE / 'rec-algorithm/jobs/spark/recall/catalog.py'))['SERVING_TABLES']
         tree = ast.parse((WORKSPACE / 'rec-algorithm/publisher/spark.py').read_text())
         publish = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                        and node.name == 'publish_embedding')
         defaults = dict(zip((arg.arg for arg in publish.args.args[-len(publish.args.defaults):]),
                             map(ast.literal_eval, publish.args.defaults)))
         self.assertEqual(defaults['index_suffix'], 'item-seq-emb-index')
-        initializer = (WORKSPACE / 'example/init/src/main/java/com/openrec/example/InitStandalone.java').read_text()
+        initializer = (WORKSPACE / 'openrec/init/src/main/java/com/openrec/example/task/SequenceEmbeddingTask.java').read_text()
         self.assertIn('"%s-item-seq-emb-index"', initializer)
 
         for target, dag_name in (('item', 'openrec_daily_recall.py'),
@@ -141,7 +142,7 @@ class RecallContractTest(unittest.TestCase):
                 vector = json.loads(row['vector'])
                 self.assertEqual(len(vector), 1024)
                 self.assertAlmostEqual(math.sqrt(sum(value * value for value in vector)), 1., places=5)
-        with (WORKSPACE / 'example/data/test/item.csv').open() as stream:
+        with (WORKSPACE / 'openrec/data/test/item.csv').open() as stream:
             expected = [(row['scene'], row['id']) for row in csv.DictReader(stream)]
         self.assertEqual(identities[0], expected)
         self.assertFalse((root / 'item_content_emb.csv').exists())

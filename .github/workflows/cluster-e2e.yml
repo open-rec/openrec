@@ -51,7 +51,7 @@ jobs:
       - name: Check out distribution
         uses: actions/checkout@v7
         with:
-          path: openrec/example
+          path: openrec/openrec
           clean: true
 
       - name: Set up Java 21 for all Java components
@@ -62,36 +62,36 @@ jobs:
           cache: maven
 
       - name: Check out manifest components
-        working-directory: openrec/example
-        run: ./scripts/checkout-components.sh
+        working-directory: openrec/openrec
+        run: ./scripts/release/checkout-components.sh
 
       - name: Start and verify the complete cluster distribution
         working-directory: openrec
-        run: ./example/example_cluster/start.sh
+        run: ./openrec/cluster/start.sh
 
       - name: Capture diagnostics
         if: failure()
         working-directory: openrec
         run: |
-          mkdir -p example/example_cluster/.runtime/ci-logs
-          free -h > example/example_cluster/.runtime/ci-logs/memory.txt 2>&1 || true
-          df -h > example/example_cluster/.runtime/ci-logs/disk.txt 2>&1 || true
-          docker stats --no-stream > example/example_cluster/.runtime/ci-logs/docker-stats.txt 2>&1 || true
-          docker ps -a > example/example_cluster/.runtime/ci-logs/docker-ps.txt 2>&1 || true
-          docker compose -f example/example_cluster/docker-compose.yml logs --no-color > example/example_cluster/.runtime/ci-logs/business.log 2>&1 || true
-          docker logs airflow-scheduler > example/example_cluster/.runtime/ci-logs/airflow-scheduler.log 2>&1 || true
-          docker logs spark-master > example/example_cluster/.runtime/ci-logs/spark-master.log 2>&1 || true
+          mkdir -p openrec/cluster/.runtime/ci-logs
+          free -h > openrec/cluster/.runtime/ci-logs/memory.txt 2>&1 || true
+          df -h > openrec/cluster/.runtime/ci-logs/disk.txt 2>&1 || true
+          docker stats --no-stream > openrec/cluster/.runtime/ci-logs/docker-stats.txt 2>&1 || true
+          docker ps -a > openrec/cluster/.runtime/ci-logs/docker-ps.txt 2>&1 || true
+          docker compose -f openrec/cluster/docker-compose.yml logs --no-color > openrec/cluster/.runtime/ci-logs/business.log 2>&1 || true
+          docker logs airflow-scheduler > openrec/cluster/.runtime/ci-logs/airflow-scheduler.log 2>&1 || true
+          docker logs spark-master > openrec/cluster/.runtime/ci-logs/spark-master.log 2>&1 || true
 
       - name: Upload diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: cluster-e2e-logs
-          path: openrec/example/example_cluster/.runtime/
+          path: openrec/openrec/cluster/.runtime/
           if-no-files-found: ignore
           retention-days: 7
 
       - name: Stop cluster distribution
         if: always()
         working-directory: openrec
-        run: ./example/example_cluster/stop.sh || true
+        run: ./openrec/cluster/stop.sh || true

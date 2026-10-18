@@ -7,7 +7,7 @@ public final class Ids {
     /**
      * Strip the quotes off an item id.
      * <p>
-     * Two places hand us quoted ids. {@code InitStandalone} writes recall tables with
+     * Two places hand us quoted ids. {@code InitServingData} writes recall tables with
      * {@code GenericJackson2JsonRedisSerializer}, so a sorted-set member is literally
      * {@code "item_1069"} — quotes included. And rec-server's multi-key
      * {@code RedisService.getZSet(List, ...)} does not unquote its members, so ids coming back from

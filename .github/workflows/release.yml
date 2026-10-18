@@ -25,7 +25,7 @@ jobs:
           [[ "${version}" != *-dev ]]
 
       - name: Assemble immutable distribution bundle
-        run: ./scripts/package-release.sh
+        run: ./scripts/release/package-release.sh
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3

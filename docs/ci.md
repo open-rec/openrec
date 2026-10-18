@@ -23,7 +23,7 @@ workflow cannot contaminate the next run.
 
 The quality workflow checks out the Java components used by its compatibility build and every
 component referenced by the standalone and cluster Compose definitions. Set `OPENREC_COMPONENTS`
-to a space-separated list when running `scripts/checkout-components.sh` to select components; when
+to a space-separated list when running `scripts/release/checkout-components.sh` to select components; when
 it is unset, the script continues to check out the complete manifest.
 Manifest branch refs are checked out as local tracking branches so a development workspace remains
 attached to its branch. Immutable commit and tag refs intentionally use detached HEAD mode.
@@ -37,8 +37,7 @@ Compilation and test failures are not retried. Persistent repository failures st
 
 All three distribution workflows provision Temurin JDK 21. Source modules, SDK and example
 applications target Java 21; Spark 4.0.4/Scala 2.13 and Flink 2.2.1 use matching Java 21 platform
-images. Independent storage daemons retain their configured JVMs. See
-[single-JDK builds](java21-unified-build.md) for Java selection and Maven cache permissions.
+images. Independent storage daemons retain their configured JVMs.
 
 Both E2E jobs use `RECOMMEND_DEADLINE_MS=10000` and `OPENREC_GRAPH_NODE_TIMEOUT_MS=1000` for
 functional acceptance on shared runners. Warmup first uses independent budgets, then verifies
@@ -54,7 +53,7 @@ and Kafka are bypassed. Cluster ingestion smoke runs after recommendation smoke,
 
 ## Reproducing cluster CI locally
 
-CI runs `scripts/checkout-components.sh` followed by `example_cluster/start.sh`. The checkout pins
+CI runs `scripts/release/checkout-components.sh` followed by `cluster/start.sh`. The checkout pins
 component sources to `release/openrec.json`; direct local startup builds whatever is in the
 workspace and does not change Git refs. Compare component commits and local modifications first.
 
@@ -80,6 +79,6 @@ warmup, verifies recommendations and sends a uniquely named user through Kafka/p
 Other lifecycle/rollback scripts are separate acceptance flows and are not all run by startup.
 
 On failure, inspect the matching run ID and task in Airflow. The startup error handler saves
-business-service, scheduler and processor logs under `example_cluster/.runtime/logs/` before
+business-service, scheduler and processor logs under `cluster/.runtime/logs/` before
 stopping services; CI also uploads `.runtime/`. Use request IDs to correlate debug diagnostics
 with `graph_trace`. These are application logs, not a guaranteed redacted export.

@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 
 SPEC = importlib.util.spec_from_file_location(
-    "wait_ready", Path(__file__).resolve().parents[1] / "wait-recommendation-ready.py")
+    "wait_ready", Path(__file__).resolve().parents[1] / "runtime" / "wait-recommendation-ready.py")
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
@@ -51,3 +51,14 @@ class ReadinessClientTest(unittest.TestCase):
             samples = request.call_args_list[0].args[2]
             self.assertEqual([sample["targetType"] for sample in samples], ["item", "user"])
             self.assertEqual([sample["params"]["query"] for sample in samples], ["item", "CN"])
+
+    def test_custom_queries_and_scene_reach_warmup(self):
+        with patch("sys.argv", ["wait", "--user-id", "reader", "--scene", "books",
+                                "--item-query", "文学", "--user-query", "读者",
+                                "--target", "item", "--target", "user"]), \
+                patch.object(MODULE, "request") as request:
+            request.side_effect = [{}, {"ready": True}]
+            MODULE.main()
+            samples = request.call_args_list[0].args[2]
+            self.assertEqual([sample["scene"] for sample in samples], ["books", "books"])
+            self.assertEqual([sample["params"]["query"] for sample in samples], ["文学", "读者"])

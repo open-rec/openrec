@@ -20,7 +20,7 @@ jobs:
       - name: Check out distribution
         uses: actions/checkout@v7
         with:
-          path: openrec/example
+          path: openrec/openrec
 
       - name: Set up Java 21 for all Java components
         uses: actions/setup-java@v5
@@ -30,10 +30,10 @@ jobs:
           cache: maven
 
       - name: Check out manifest components
-        working-directory: openrec/example
+        working-directory: openrec/openrec
         env:
           OPENREC_COMPONENTS: bigdata-platform rec-server sdk rec-console rank-engine rec-algorithm data-processor
-        run: ./scripts/checkout-components.sh
+        run: ./scripts/release/checkout-components.sh
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -46,25 +46,25 @@ jobs:
         run: pip install pandas numpy pytest
 
       - name: Validate distribution policy and deployment definitions
-        working-directory: openrec/example
-        run: ./scripts/validate.sh
+        working-directory: openrec/openrec
+        run: ./scripts/ci/validate.sh
 
       - name: Test Maven dependency retry handling
-        working-directory: openrec/example
+        working-directory: openrec/openrec
         run: python -m unittest discover -s scripts/tests -v
 
       - name: Verify rank model feature transport
-        working-directory: openrec/example
-        run: python scripts/verify_rank_feature_contract.py
+        working-directory: openrec/openrec
+        run: python scripts/ci/verify_rank_feature_contract.py
 
       - name: Verify SDK feature and event contracts
-        working-directory: openrec/example
-        run: python scripts/verify_sdk_feature_contract.py
+        working-directory: openrec/openrec
+        run: python scripts/ci/verify_sdk_feature_contract.py
 
       - name: Build and test Java 21 components
-        working-directory: openrec/example
-        run: ./scripts/build-components.sh
+        working-directory: openrec/openrec
+        run: ./scripts/ci/build-components.sh
 
       - name: Verify Python, Flink, and Spark feature parity
-        working-directory: openrec/example
-        run: ./scripts/verify-feature-parity.sh
+        working-directory: openrec/openrec
+        run: ./scripts/ci/verify-feature-parity.sh

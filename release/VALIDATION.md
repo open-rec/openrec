@@ -9,8 +9,8 @@ Validated on 2026-10-05. The release changes package/jar versions, matching cons
 | rec-server | Java 21 `mvn clean install` | 151 tests: 149 passed, 2 existing live-service skips; all five modules built |
 | Java SDK | Java 21 `mvn clean install` against rec-proto 0.1.0 | 6 passed; rec-client 0.1.0 installed |
 | data-processor | Java 21 `mvn clean verify` | 26 passed, including Flink state/parity and Spark micro-batches; 0.1.0 jars built |
-| example/init | Java 21 `mvn clean verify` | 3 passed; executable assembly built |
-| example/web | Java 21 `mvn clean verify` | 2 passed; Spring Boot jar built |
+| openrec/init | Java 21 `mvn clean verify` | 3 passed; executable assembly built |
+| openrec/web | Java 21 `mvn clean verify` | 2 passed; Spring Boot jar built |
 | rec-algorithm | Current source copied into a temporary `openrec/rec-algorithm:latest` container; `python -m pytest -q -p no:cacheprovider test` with Spark 4.0.4 and the separate training interpreter | 140 passed |
 | Algorithm package | `pip wheel --no-deps --no-build-isolation` in an isolated source copy | `rec_algorithm-0.1.0-py3-none-any.whl` built |
 | rank-engine | Temporary `openrec/rank-engine:latest` container, newly built algorithm 0.1.0 wheel installed; `python -m pytest -q -p no:cacheprovider test` | 51 passed |
@@ -20,7 +20,7 @@ Validated on 2026-10-05. The release changes package/jar versions, matching cons
 | Go SDK | Go 1.22 container, `go vet ./...` and `go test ./...` | Passed |
 | experiments | `.venv/bin/python -m pytest -q -p no:cacheprovider tests` | 30 passed |
 | Catalog | `validate_catalog.py` and `publish_catalog.py --check` | 264 canonical features, 92 fitted references; packaged copies match |
-| Bootstrap bundle | `check_default_artifacts.py --data ../example/data/test --model-root ../model` | Input/catalog/output checks passed |
+| Bootstrap bundle | `check_default_artifacts.py --data ../openrec/data/test --model-root ../model` | Input/catalog/output checks passed |
 | Distribution | `python -m unittest discover -s scripts/tests -q` | 28 passed |
 | Cross-component contracts | `verify_rank_feature_contract.py` and `verify_sdk_feature_contract.py` | Passed |
 | Manifest | `validate_distribution.py --require-immutable` | Version/ref/documentation checks passed |

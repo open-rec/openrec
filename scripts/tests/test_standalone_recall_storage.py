@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 
-STARTUP = Path(__file__).resolve().parents[2] / "example_standalone/start.sh"
+STARTUP = Path(__file__).resolve().parents[2] / "standalone/init.sh"
 
 
 class StandaloneRecallStorageTest(unittest.TestCase):

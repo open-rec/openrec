@@ -1,0 +1,10 @@
+# Merged with rank-engine before Compose imports the service into the assembly.
+services:
+  rank-engine:
+    environment:
+      MODEL_STATE_DIR: ${OPENREC_MODEL_STATE_DIR:-/models/active}
+    volumes:
+      - type: bind
+        source: ${OPENREC_MODEL_ROOT:-../model}
+        target: /bootstrap-models
+        read_only: true

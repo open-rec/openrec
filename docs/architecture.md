@@ -103,8 +103,7 @@ New-format selected-definition fingerprints tolerate unrelated catalog additions
 incompatible dependencies. Legacy artifacts retain their exact-catalog compatibility checks.
 Activation and feature refresh must preserve a consistent model/encoding snapshot. Missing-column
 checks do not establish per-entity completeness or freshness; individual missing values follow
-the fitted encoder's policy. See the [feature time contract](feature-time-contract.md) for temporal
-joins, event identity, and snapshot compatibility.
+the fitted encoder's policy.
 
 Model management is enabled in cluster mode. Standalone retains monitoring, entity diagnostics,
 and serving-graph operations. Deploy companion components from `release/openrec.json` together,
