@@ -34,7 +34,7 @@ openrec_import_data() {
         --data "${OPENREC_DATA_DIR}" --model-root "${OPENREC_MODEL_ROOT}" \
         || { die "input/model artifacts changed since preparation; restart initialization"; return 1; }
     note "Importing ${OPENREC_DATA_DIR} with artifacts from ${OPENREC_MODEL_ROOT}"
-    "${JAVA}" -cp "${BUILD_DIR}/openrec/init/target/rec-example-init-0.1.0-jar-with-dependencies.jar" \
+    "${JAVA}" -cp "${BUILD_DIR}/openrec/init/target/rec-example-init-0.2.0-jar-with-dependencies.jar" \
         com.openrec.example.InitServingData "${mode}" \
         127.0.0.1 6380 127.0.0.1 9200 elastic openrec-es-password \
         "${OPENREC_DATA_DIR}" "${OPENREC_MODEL_ROOT}"

@@ -254,7 +254,7 @@ if docker exec spark-master test -f "${SPARK_PID_FILE}"; then
   docker exec spark-master kill -0 "${old_spark_pid}" 2>/dev/null \
     && die "Spark data-processor is already running (container pid ${old_spark_pid})"
 fi
-docker cp "${BUILD_DIR}/data-processor/spark/target/rec-spark-0.1.0.jar" \
+docker cp "${BUILD_DIR}/data-processor/spark/target/rec-spark-0.2.0.jar" \
   spark-master:/tmp/openrec-data-processor.jar
 docker exec -d spark-master bash -lc \
   "echo \$\$ >${SPARK_PID_FILE}; exec /opt/spark/bin/spark-submit --class com.openrec.dp.spark.SparkFeatureJob --master spark://spark-master:7077 --total-executor-cores ${OPENREC_SPARK_TOTAL_EXECUTOR_CORES:-4} /tmp/openrec-data-processor.jar >${SPARK_LOG_FILE} 2>&1"
@@ -317,7 +317,7 @@ fi
 
 port_in_use 12345 && die "Web Demo port 12345 is already occupied"
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${JAVA}" -jar "${BUILD_DIR}/openrec/web/target/rec-example-web-0.1.0.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/openrec/web/target/rec-example-web-0.2.0.jar" \
   --server.port=12345 --demo.exposure-mode=viewport
 wait_for_url "Web Demo" http://127.0.0.1:12345/
 

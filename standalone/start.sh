@@ -197,7 +197,7 @@ web_port=12345
 port_in_use "${web_port}" && die "Web Demo port 12345 is already occupied"
 
 start_jar "Web Demo" "${STATE_DIR}/web.pid" "${LOG_DIR}/web.log" \
-  "${JAVA}" -jar "${BUILD_DIR}/openrec/web/target/rec-example-web-0.1.0.jar" \
+  "${JAVA}" -jar "${BUILD_DIR}/openrec/web/target/rec-example-web-0.2.0.jar" \
   "--server.port=${web_port}"
 wait_for_url "Web Demo" "http://127.0.0.1:${web_port}/"
 echo "${web_port}" >"${STATE_DIR}/web.port"

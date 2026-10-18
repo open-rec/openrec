@@ -14,14 +14,14 @@
 Create an annotated tag matching `VERSION`:
 
 ```shell
-git switch release/0.1.0
-git tag -a v0.1.0 -m 'OpenRec v0.1.0'
-git push origin v0.1.0
+git switch release/0.2.0
+git tag -a v0.2.0 -m 'OpenRec v0.2.0'
+git push origin v0.2.0
 ```
 
 The release workflow revalidates version consistency, rejects floating component refs, assembles the
 distribution bundle, writes SHA-256 checksums, and creates a GitHub Release. Each component also publishes its reviewed `RELEASE_NOTES.md`, source archive and checksums.
-Version 0.1.0 is a source release: Maven Central, PyPI and versioned OCI image publication are not
+Version 0.2.0 is a source release: Maven Central, PyPI and versioned OCI image publication are not
 part of this workflow. If publishing images separately, record their immutable digests.
 
 ## After publication

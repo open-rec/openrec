@@ -33,7 +33,7 @@ class DistributionPathsTest(unittest.TestCase):
   case "$2" in
     */rec-server/pom.xml)
       mkdir -p "${BUILD_ROOT}/rec-server/contrib/target"
-      touch "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-0.1.0.jar" ;;
+      touch "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-0.2.0.jar" ;;
     */sdk/java-client/pom.xml)
       (cd "$(dirname "$2")" && cmp ../testdata/recommend.json "${WORKSPACE}/sdk/testdata/recommend.json") ;;
   esac

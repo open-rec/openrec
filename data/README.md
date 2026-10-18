@@ -56,7 +56,7 @@ Then point the loader at it:
 
 ```shell
 cd openrec
-java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
+java -cp init/target/rec-example-init-0.2.0-jar-with-dependencies.jar \
   com.openrec.example.InitServingData standalone 127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password' data/douban
 ```
 

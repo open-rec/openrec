@@ -1,6 +1,6 @@
 # OpenRec Distribution
 
-[Release v0.1.0](RELEASE_NOTES.md) · [Changelog](CHANGELOG.md)
+[Release v0.2.0](RELEASE_NOTES.md) · [Changelog](CHANGELOG.md)
 
 [![Quality](https://github.com/open-rec/openrec/actions/workflows/quality.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/quality.yml)
 [![Standalone E2E](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml/badge.svg)](https://github.com/open-rec/openrec/actions/workflows/standalone-e2e.yml)
@@ -15,7 +15,7 @@ provides a reproducible sample dataset and Web Demo, and owns cross-repository e
 [Architecture](docs/architecture.md) · [Versioning](docs/versioning.md) ·
 [Releasing](docs/releasing.md) · [Organization overview](https://github.com/open-rec)
 
-> OpenRec v0.1.0 pins immutable component commits. Use this tagged release for reproducible
+> OpenRec v0.2.0 pins immutable component commits. Use this tagged release for reproducible
 > source deployments; the supplied cluster Compose is an integration/reference
 > topology and requires security and HA work before production use.
 

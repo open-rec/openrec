@@ -159,7 +159,7 @@ working directory:
 ```shell
 cd openrec
 ./init/tools/ensure-model-artifacts.sh
-java -cp init/target/rec-example-init-0.1.0-jar-with-dependencies.jar \
+java -cp init/target/rec-example-init-0.2.0-jar-with-dependencies.jar \
   com.openrec.example.InitServingData standalone \
   127.0.0.1 6380 127.0.0.1 9200 elastic 'openrec-es-password'
 cd ..
@@ -239,7 +239,7 @@ result includes its recall channel and score.
 ```shell
 cd openrec/web
 mvn clean package -DskipTests
-java -jar target/rec-example-web-0.1.0.jar
+java -jar target/rec-example-web-0.2.0.jar
 ```
 
 Open `http://127.0.0.1:12345`.

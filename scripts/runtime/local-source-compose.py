@@ -15,8 +15,8 @@ def generate(workspace, state, mode):
 
     services = {
         "rec-server": {"volumes": [
-            mount(build / "rec-server/server/target/rec-server-0.1.0.jar", "/opt/openrec/rec-server.jar"),
-            mount(build / "rec-server/contrib/target/rec-contrib-0.1.0.jar", "/opt/openrec/plugins/rec-contrib.jar"),
+            mount(build / "rec-server/server/target/rec-server-0.2.0.jar", "/opt/openrec/rec-server.jar"),
+            mount(build / "rec-server/contrib/target/rec-contrib-0.2.0.jar", "/opt/openrec/plugins/rec-contrib.jar"),
         ]},
         "rec-console": {"volumes": [
             mount(build / "rec-console/rec_console", "/opt/rec-console/rec_console"),
