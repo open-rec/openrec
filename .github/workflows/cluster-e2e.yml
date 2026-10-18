@@ -17,6 +17,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
+      # Hosted runners use upstream registries instead of the local mirror defaults.
+      AIRFLOW_IMAGE: apache/airflow:3.3.0-python3.12
+      PROMETHEUS_IMAGE: prom/prometheus:v3.5.0
+      GRAFANA_IMAGE: grafana/grafana:12.1.0
+      REDIS_EXPORTER_IMAGE: oliver006/redis_exporter:v1.77.0
+      ELASTICSEARCH_EXPORTER_IMAGE: prometheuscommunity/elasticsearch-exporter:v1.9.0
+      KAFKA_EXPORTER_IMAGE: danielqsj/kafka-exporter:v1.9.0
+      BLACKBOX_EXPORTER_IMAGE: prom/blackbox-exporter:v0.27.0
       COMPOSE_PARALLEL_LIMIT: '2'
       MAVEN_OPTS: -Xms128m -Xmx768m
       ZOOKEEPER_HEAP: '256'
