@@ -14,6 +14,36 @@ WORKSPACE = ROOT.parent
 
 
 class DistributionPathsTest(unittest.TestCase):
+    def test_isolated_java_build_preserves_shared_sdk_fixtures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            root = workspace / "openrec"
+            for name in ("scripts/ci", "scripts/lib", "init", "web"):
+                (root / name).mkdir(parents=True)
+            for name in ("rec-server", "sdk/java-client", "sdk/testdata"):
+                (workspace / name).mkdir(parents=True)
+            for name in ("rec-server/pom.xml", "sdk/java-client/pom.xml"):
+                (workspace / name).touch()
+            fixture = '{"data":{"results":[]}}\n'
+            (workspace / "sdk/testdata/recommend.json").write_text(fixture)
+            shutil.copy2(ROOT / "scripts/ci/build-components.sh", root / "scripts/ci/build-components.sh")
+            (root / "scripts/lib/java.sh").write_text("openrec_setup_java() { :; }\n")
+            # Execute the real staging commands, replacing only Maven execution.
+            (root / "scripts/lib/maven.sh").write_text('''run_maven() {
+  case "$2" in
+    */rec-server/pom.xml)
+      mkdir -p "${BUILD_ROOT}/rec-server/contrib/target"
+      touch "${BUILD_ROOT}/rec-server/contrib/target/rec-contrib-0.1.0.jar" ;;
+    */sdk/java-client/pom.xml)
+      (cd "$(dirname "$2")" && cmp ../testdata/recommend.json "${WORKSPACE}/sdk/testdata/recommend.json") ;;
+  esac
+}
+''')
+            result = subprocess.run(["bash", str(root / "scripts/ci/build-components.sh")],
+                                    cwd=temporary, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertEqual((root / ".runtime/ci-build/sdk/testdata/recommend.json").read_text(), fixture)
+
     def test_workflow_local_entry_points_resolve_from_working_directory(self):
         references = 0
         for workflow in (ROOT / ".github/workflows").glob("*.yml"):

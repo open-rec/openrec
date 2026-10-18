@@ -21,6 +21,9 @@ rsync -a --no-owner --no-group --delete --exclude .git --exclude target/ --exclu
   "${WORKSPACE}/rec-server/" "${BUILD_ROOT}/rec-server/"
 rsync -a --no-owner --no-group --delete --exclude .git --exclude target/ --exclude logs/ \
   "${WORKSPACE}/sdk/java-client/" "${BUILD_ROOT}/sdk/java-client/"
+# Java contract tests share fixtures with the other SDKs via ../testdata.
+rsync -a --no-owner --no-group --delete \
+  "${WORKSPACE}/sdk/testdata/" "${BUILD_ROOT}/sdk/testdata/"
 rsync -a --no-owner --no-group --delete --exclude target/ \
   "${ROOT}/init/" "${BUILD_ROOT}/openrec/init/"
 rsync -a --no-owner --no-group --delete --exclude target/ \
